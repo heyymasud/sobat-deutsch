@@ -1,0 +1,25 @@
+@import "tailwindcss";
+
+@theme {
+  /* Darkened from the original #3b82f6/#ef4444/#10b981/#eab308 (all ~1.9-3.8:1,
+     failing WCAG AA) to hit >=4.5:1 against the light backgrounds these are
+     actually rendered on (white / gray-50 / *-50 chip fills) — see
+     src/index.contrast.test.ts. Hue family kept recognizable per gender. */
+  --color-gender-m: #1d4ed8; /* Maskulin = Blue */
+  --color-gender-f: #b91c1c; /* Feminin = Red */
+  --color-gender-n: #15803d; /* Netral = Green */
+  --color-gender-p: #b45309; /* Plural = Amber */
+}
+
+/* Base custom styles for Dark Mode support */
+html.dark {
+  color-scheme: dark;
+}
+
+body {
+  @apply bg-gray-50 text-gray-900 transition-colors duration-200;
+}
+
+html.dark body {
+  @apply bg-slate-950 text-slate-100;
+}

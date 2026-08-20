@@ -1,0 +1,29 @@
+# Data pipeline: raw dumps & derived output TIDAK masuk repo.
+# Alasan (lihat docs/ARCHITECTURE.md §7.2, docs/PRD.md §17.3):
+#   - Raw dump (kaikki-german.jsonl, ~1.1GB) bisa diunduh ulang kapan saja
+#     dari kaikki.org -- tidak ada alasan menyimpan salinan sendiri di repo/DB.
+#   - dictionary.sqlite adalah OUTPUT ANTARA pipeline (bisa di-regenerate dari
+#     raw dump kapan saja lewat scripts/normalize_dictionary.py) -- source of
+#     truth yang sebenarnya ada di tabel `dictionary` Postgres (Supabase)
+#     setelah diimpor, bukan file lokal ini.
+# Yang TETAP masuk repo: scripts/*.py (kode pipeline itu sendiri).
+data-pipeline/raw/
+data-pipeline/output/
+
+# Node / frontend (disiapkan untuk scaffold berikutnya)
+node_modules/
+dist/
+.env
+.env.local
+*.local
+coverage/
+
+# Supabase CLI local runtime state (secrets/container state, bukan source pipeline)
+supabase/.temp/
+supabase/.branches/
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
