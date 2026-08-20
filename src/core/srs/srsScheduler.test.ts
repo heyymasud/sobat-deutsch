@@ -1,5 +1,12 @@
 import { describe, it, expect } from 'vitest'
-import { calculateSm2, generateCardsForWord, interleaveByKey } from './srsScheduler'
+import {
+  calculateSm2,
+  generateCardsForWord,
+  interleaveByKey,
+  shouldShowPatternDrill,
+  calculateAccuracy,
+  isSessionStateFresh,
+} from './srsScheduler'
 import type { DictionaryEntry } from '../../modules/dictionary/types'
 
 describe('SM-2 Algorithm', () => {
@@ -164,5 +171,67 @@ describe('Automatic Card Generation', () => {
     expect(types).toContain('arti')
     expect(types).toContain('cloze-kasus')
     expect(types).toContain('konjugasi')
+  })
+})
+
+describe('shouldShowPatternDrill (S9-05, AC-SRS-07, BR-SRS-07)', () => {
+  it('should show the drill the first time an ablaut_class is encountered', () => {
+    expect(shouldShowPatternDrill('class 7', new Set())).toBe(true)
+  })
+
+  it('should NOT show the drill again once the class has been seen', () => {
+    expect(shouldShowPatternDrill('class 7', new Set(['class 7']))).toBe(false)
+  })
+
+  it('should never show the drill when there is no ablaut_class (non-strong verbs)', () => {
+    expect(shouldShowPatternDrill(null, new Set())).toBe(false)
+    expect(shouldShowPatternDrill(undefined, new Set())).toBe(false)
+  })
+
+  it('should still show a different, unseen class even if another class was already seen', () => {
+    expect(shouldShowPatternDrill('class 2', new Set(['class 7']))).toBe(true)
+  })
+})
+
+describe('calculateAccuracy (S9-06, AC-SRS-09)', () => {
+  it('should return 0 for an empty session', () => {
+    expect(calculateAccuracy([])).toBe(0)
+  })
+
+  it('should count ratings 3 (Baik) and 4 (Mudah) as correct', () => {
+    expect(calculateAccuracy([3, 4, 3, 4])).toBe(1)
+  })
+
+  it('should count ratings 1 (Lagi) and 2 (Keras) as incorrect', () => {
+    expect(calculateAccuracy([1, 2, 1, 2])).toBe(0)
+  })
+
+  it('should compute a mixed ratio correctly', () => {
+    expect(calculateAccuracy([1, 2, 3, 4])).toBe(0.5)
+  })
+})
+
+describe('isSessionStateFresh (S9-07, AC-SRS-11)', () => {
+  it('should be fresh right after saving', () => {
+    const now = 1_000_000
+    expect(isSessionStateFresh(now, now)).toBe(true)
+  })
+
+  it('should be fresh just under the default 6h cutoff', () => {
+    const savedAt = 1_000_000
+    const now = savedAt + 6 * 60 * 60 * 1000 - 1
+    expect(isSessionStateFresh(savedAt, now)).toBe(true)
+  })
+
+  it('should be stale at/after the default 6h cutoff', () => {
+    const savedAt = 1_000_000
+    const now = savedAt + 6 * 60 * 60 * 1000
+    expect(isSessionStateFresh(savedAt, now)).toBe(false)
+  })
+
+  it('should respect a custom maxAgeMs', () => {
+    const savedAt = 1_000_000
+    expect(isSessionStateFresh(savedAt, savedAt + 1000, 500)).toBe(false)
+    expect(isSessionStateFresh(savedAt, savedAt + 100, 500)).toBe(true)
   })
 })

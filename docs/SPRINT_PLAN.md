@@ -310,6 +310,26 @@ gantt
 
 ---
 
+## Sprint 9 — Perbaikan Pasca-Audit Regresi (S8-08)
+
+**Tujuan Sprint:** Menutup gap yang ditemukan saat audit AC-by-AC penuh (S8-08, 20 Agustus 2026) — 6 bug mekanis dari audit itu sudah langsung diperbaiki di sesi yang sama, tapi 8 gap berikut bersifat fitur/perilaku (bukan bug satu-baris) sehingga sengaja dijadwalkan sebagai task terpisah alih-alih ditambal buru-buru saat audit. Semua task di sini punya AC yang sudah ada di PRD §14 — tidak ada AC baru.
+**Epic:** E3 (SRS), E5 (Quiz), E7 (Sync).
+
+| ID | Task | PRD Ref | Architecture Ref | Est. | Depends on |
+|---|---|---|---|---|---|
+| S9-01 | Resolusi konflik sync berbasis timestamp sungguhan (bukan arrival-order) — RPC compare-and-swap membandingkan `updated_at` sebelum menimpa `srs_cards` | AC-SYNC-02, BR-SYNC-02 | §12.2, §13.3 | M | S4-07 |
+| S9-02 | Indikator status + retry manual untuk sinkronisasi SRS (deck/kartu/review log) — `SyncIndicator.tsx` saat ini hanya melaporkan status unduhan kamus, bukan `syncEngine` | AC-SYNC-01, AC-SYNC-03, FR-SYNC-06 | §12.2 | S | S4-07, S4-08 |
+| S9-03 | Dukungan `prefers-reduced-motion` — nonaktifkan/kurangi animasi (`animate-spin`, `animate-pulse`, transition) di seluruh UI saat preferensi sistem aktif | AC-UX-05, NFR-UX-05 | §11.3 | S | — |
+| S9-04 | Kartu arti verba tanpa kalimat contoh: cegah degradasi ke kata+arti polos (BR-SRS-05) — beri fallback eksplisit atau larang pembuatan kartu tipe ini sampai data contoh terisi | AC-SRS-03, BR-SRS-05 | §12.2 | S | S3-07 |
+| S9-05 | Pattern Drill benar-benar tampil hanya SEKALI per ablaut class baru (butuh state/flag tersimpan, bukan re-render setiap kartu jenis itu muncul) | AC-SRS-07, BR-SRS-07 | §12.2 | M | S7-02 |
+| S9-06 | Layar ringkasan sesi review sungguhan (jumlah kartu, akurasi, jadwal berikutnya) — saat ini cuma `alert()` | AC-SRS-09, FR-SRS-15 | §4.1 | S | S3-08 |
+| S9-07 | Resume sesi review dari posisi PERSIS terakhir (index kartu tersimpan), bukan cuma re-derive antrean due dari awal | AC-SRS-11 | §12.2 | S | S3-09 |
+| S9-08 | Tombol "Tambahkan semua" di layar rekomendasi Artikel Rush (saat ini hanya per-kata satu-satu) | AC-QUIZ-05, FR-QUIZ-06 | §4.1 | S | S5-04 |
+
+**Sprint Goal check:** kedelapan AC di atas (AC-SYNC-01/02/03, AC-UX-05, AC-SRS-03/07/09/11, AC-QUIZ-05) berubah dari GAP-FOUND menjadi VERIFIED-BY-TEST atau VERIFIED-LIVE di `docs/SPRINT_CHECKLIST.md`.
+
+---
+
 ## 13a. Backlog — Sengaja Belum Dijadwalkan (Should/Could, Bukan Terlewat)
 
 Ditemukan lewat audit konsistensi (20 Agustus 2026): FR berikut **tidak punya task** di sprint manapun. Setelah triase, ini bukan celah yang harus ditambal jadi task baru — semuanya berprioritas **Should/Could** (bukan Must) di PRD, dan scope-nya masuk akal ditunda ke luar 8 sprint v1. Didaftar di sini secara eksplisit supaya statusnya **jelas sengaja ditunda**, bukan diam-diam terlewat:
@@ -351,6 +371,8 @@ Cakupan modul FR PRD terhadap sprint:
 | NFR-SEC-*, NFR-PERF-*, NFR-REL-*, NFR-COMP-*, NFR-MNT-*, NFR-UX-* | Cross-cutting — lihat tabel §3 "NFR Cross-Cutting", diverifikasi ulang di S8-08 |
 
 **Cakupan terverifikasi per 20 Agustus 2026:** seluruh 185 ID FR/BR/NFR individual di PRD sudah ditelusuri satu per satu (bukan cuma level modul) — hasilnya ada di tabel di atas + §13a. Setiap ID yang tidak muncul di task manapun sekarang punya salah satu dari tiga status eksplisit: **(a)** ditambahkan sebagai task baru, **(b)** dicatat sengaja ditunda di backlog §13a, atau **(c)** ditandai cross-cutting/melekat ke task lain. Tidak ada ID yang statusnya "tidak diketahui".
+
+**Update pasca-audit S8-08 (20 Agustus 2026):** audit AC-by-AC penuh terhadap seluruh 59 AC §14 menemukan 8 AC yang statusnya GAP-FOUND (kode ada tapi perilakunya belum sesuai kriteria) — ditambahkan sebagai Sprint 9 di atas: AC-SYNC-01/02/03, AC-UX-05, AC-SRS-03/07/09/11, AC-QUIZ-05. Ini bukan FR/BR yang hilang dari tracking (semuanya sudah pernah dijadwalkan di Sprint 2-7), melainkan implementasi yang perlu diperbaiki/dituntaskan.
 
 ---
 

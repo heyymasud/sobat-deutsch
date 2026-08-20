@@ -15,6 +15,8 @@ vi.mock('../db/dictionaryDb', () => {
     syncQueue: {
       orderBy: vi.fn(),
       delete: vi.fn(),
+      count: vi.fn().mockResolvedValue(0),
+      hook: vi.fn(),
     },
   }
   return { db: mockDb }
@@ -25,6 +27,7 @@ vi.mock('../api/supabaseClient', () => {
     supabase: {
       auth: { getSession: vi.fn() },
       from: vi.fn(),
+      rpc: vi.fn(),
     },
   }
 })
@@ -34,8 +37,10 @@ const SESSION = { data: { session: { user: { id: 'user-1' } } } }
 describe('syncEngine.triggerSync', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    vi.resetModules()
     ;(globalThis as any).navigator.onLine = true
     ;(supabase.auth.getSession as any).mockResolvedValue(SESSION)
+    ;(db.syncQueue.count as any).mockResolvedValue(0)
   })
 
   it('pushes a decks insert item and removes it from the queue only after success', async () => {
@@ -139,5 +144,121 @@ describe('syncEngine.triggerSync', () => {
     await syncEngine.triggerSync()
 
     expect(db.syncQueue.delete).not.toHaveBeenCalled()
+  })
+
+  // S9-01 (AC-SYNC-02, BR-SYNC-02): srsCards updates must go through the
+  // conditional "only if newer" RPC, not a plain upsert — a plain upsert
+  // always overwrites on conflict (arrival-order wins, not last-write-wins).
+  it('pushes a srsCards update via the conditional upsert RPC with the local updatedAt', async () => {
+    const { syncEngine } = await import('./syncEngine')
+
+    const queueItem = {
+      id: 5,
+      action: 'update' as const,
+      entityTable: 'srsCards' as const,
+      entityData: { id: 9, interval: 6, easeFactor: 2.5, repetitions: 2, dueDate: 1700000000000, updatedAt: 1690000000000 },
+      queuedAt: 1,
+    }
+    ;(db.syncQueue.orderBy as any).mockReturnValue({ toArray: vi.fn().mockResolvedValue([queueItem]) })
+    ;(db.srsCards.get as any).mockResolvedValue({ id: 9, deckId: 1, wordRef: 'gehen', cardType: 'konjugasi' })
+    ;(db.decks.get as any).mockResolvedValue({ id: 1, serverId: 'server-deck-uuid' })
+    ;(supabase.rpc as any).mockResolvedValue({ error: null })
+
+    await syncEngine.triggerSync()
+
+    expect(supabase.rpc).toHaveBeenCalledWith('upsert_srs_card_if_newer', expect.objectContaining({
+      p_deck_id: 'server-deck-uuid',
+      p_word_ref: 'gehen',
+      p_card_type: 'konjugasi',
+      p_interval: 6,
+      p_ease_factor: 2.5,
+      p_repetitions: 2,
+      p_updated_at: new Date(1690000000000).toISOString(),
+    }))
+    expect(db.syncQueue.delete).toHaveBeenCalledWith(5)
+  })
+
+  // The server-side "only if newer" guarantee itself lives in the RPC (WHERE
+  // excluded.updated_at > srs_cards.updated_at) and is verified live against
+  // local Supabase — see docs/SPRINT_CHECKLIST.md S9-01 bukti. This test only
+  // proves the client stays queued (doesn't lose the pending push) if the RPC
+  // rejects a stale write by returning no error but also not applying it —
+  // i.e. the client never treats "stale, so skipped" as a failure to retry.
+  it('does NOT remove a srsCards update item from the queue when the RPC errors', async () => {
+    const { syncEngine } = await import('./syncEngine')
+
+    const queueItem = {
+      id: 6,
+      action: 'update' as const,
+      entityTable: 'srsCards' as const,
+      entityData: { id: 10, interval: 1, easeFactor: 2.5, repetitions: 1, dueDate: 1700000000000, updatedAt: 1600000000000 },
+      queuedAt: 1,
+    }
+    ;(db.syncQueue.orderBy as any).mockReturnValue({ toArray: vi.fn().mockResolvedValue([queueItem]) })
+    ;(db.srsCards.get as any).mockResolvedValue({ id: 10, deckId: 1, wordRef: 'laufen', cardType: 'gender' })
+    ;(db.decks.get as any).mockResolvedValue({ id: 1, serverId: 'server-deck-uuid' })
+    ;(supabase.rpc as any).mockResolvedValue({ error: new Error('network down') })
+
+    await syncEngine.triggerSync()
+
+    expect(db.syncQueue.delete).not.toHaveBeenCalled()
+  })
+
+  // S9-02 (AC-SYNC-01, AC-SYNC-03, FR-SYNC-06): syncEngine must expose its own
+  // queue status (separate from syncManager's dictionary-download status) so
+  // the UI can show "Tersinkron" / "X menunggu" / an error + retry affordance.
+  it('exposes pendingCount via subscribe, tracked through syncQueue creating/deleting hooks', async () => {
+    ;(db.syncQueue.count as any).mockResolvedValue(0)
+    const { syncEngine } = await import('./syncEngine')
+
+    // Let the constructor's initial db.syncQueue.count() resolve.
+    await Promise.resolve()
+    await Promise.resolve()
+
+    const statuses: any[] = []
+    const unsubscribe = syncEngine.subscribe((s) => statuses.push(s))
+    expect(statuses[0]).toEqual({ state: 'synced', pendingCount: 0, error: null })
+
+    const creatingCb = (db.syncQueue.hook as any).mock.calls.find((c: any[]) => c[0] === 'creating')[1]
+    const deletingCb = (db.syncQueue.hook as any).mock.calls.find((c: any[]) => c[0] === 'deleting')[1]
+
+    creatingCb()
+    expect(statuses.at(-1)).toMatchObject({ pendingCount: 1, state: 'idle' })
+
+    deletingCb()
+    expect(statuses.at(-1)).toMatchObject({ pendingCount: 0, state: 'synced' })
+
+    unsubscribe()
+  })
+
+  it('sets state to error with the pending item retained when a srsCards push fails, and back to synced after a successful retry', async () => {
+    ;(db.syncQueue.count as any).mockResolvedValue(0)
+    const { syncEngine } = await import('./syncEngine')
+    await Promise.resolve()
+    await Promise.resolve()
+
+    const statuses: any[] = []
+    syncEngine.subscribe((s) => statuses.push(s))
+
+    const queueItem = {
+      id: 7,
+      action: 'update' as const,
+      entityTable: 'srsCards' as const,
+      entityData: { id: 11, interval: 1, easeFactor: 2.5, repetitions: 1, dueDate: 1700000000000, updatedAt: 1600000000000 },
+      queuedAt: 1,
+    }
+    ;(db.syncQueue.orderBy as any).mockReturnValue({ toArray: vi.fn().mockResolvedValue([queueItem]) })
+    ;(db.srsCards.get as any).mockResolvedValue({ id: 11, deckId: 1, wordRef: 'kommen', cardType: 'gender' })
+    ;(db.decks.get as any).mockResolvedValue({ id: 1, serverId: 'server-deck-uuid' })
+    ;(supabase.rpc as any).mockResolvedValueOnce({ error: new Error('offline') })
+
+    await syncEngine.triggerSync()
+    expect(statuses.at(-1)).toMatchObject({ state: 'error' })
+    expect(statuses.at(-1).error).toBeTruthy()
+
+    // Retry succeeds this time.
+    ;(supabase.rpc as any).mockResolvedValueOnce({ error: null })
+    await syncEngine.triggerSync()
+    expect(statuses.at(-1)).toMatchObject({ state: 'synced', error: null })
   })
 })

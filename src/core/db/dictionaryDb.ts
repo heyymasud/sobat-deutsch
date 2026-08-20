@@ -28,6 +28,7 @@ export interface SrsCard {
   repetitions: number
   dueDate: number // timestamp
   createdAt: number
+  updatedAt: number // last-modified timestamp, used for last-write-wins conflict resolution (S9-01, BR-SYNC-02)
   state?: 'new' | 'learning' | 'review' | 'suspended'
 }
 
@@ -90,6 +91,17 @@ export class DictionaryDatabase extends Dexie {
     this.version(4).stores({
       srsCards: '++id, deckId, wordRef, cardType, dueDate',
       mistakeTracker: 'wordRef, mistakeCount, lastMistakeAt'
+    })
+
+    // S9-01: add updatedAt for last-write-wins sync conflict resolution.
+    // Backfill existing rows with createdAt (best available approximation) so
+    // pre-existing local cards don't get treated as "never updated" (epoch 0).
+    this.version(5).stores({
+      srsCards: '++id, deckId, wordRef, cardType, dueDate, updatedAt'
+    }).upgrade((tx) => {
+      return tx.table('srsCards').toCollection().modify((card) => {
+        if (!card.updatedAt) card.updatedAt = card.createdAt || Date.now()
+      })
     })
   }
 }

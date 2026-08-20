@@ -11,6 +11,7 @@ export const UserProfile: React.FC<UserProfileProps> = ({ onLogout }) => {
   const [teacherApp, setTeacherApp] = useState<any>(null)
   const [displayName, setDisplayName] = useState('')
   const [newPassword, setNewPassword] = useState('')
+  const [oldPassword, setOldPassword] = useState('')
   
   // Daily Limits preference states (S7-03)
   const [dailyNewLimit, setDailyNewLimit] = useState(20)
@@ -116,12 +117,32 @@ export const UserProfile: React.FC<UserProfileProps> = ({ onLogout }) => {
       return
     }
 
+    if (!oldPassword) {
+      setErrorMsg('Masukkan password lama Anda untuk konfirmasi.')
+      return
+    }
+
     setLoading(true)
     try {
+      // AC-AUTH-11: reject the change unless the current password is verified
+      // first. supabase.auth.updateUser() alone does not require re-auth
+      // (secure_password_change is off), so re-verify via a fresh sign-in.
+      if (!user?.email) throw new Error('Sesi tidak valid.')
+      const { error: reauthError } = await supabase.auth.signInWithPassword({
+        email: user.email,
+        password: oldPassword,
+      })
+      if (reauthError) {
+        setErrorMsg('Password lama salah.')
+        setLoading(false)
+        return
+      }
+
       const { error } = await supabase.auth.updateUser({ password: newPassword })
       if (error) throw error
       setInfoMsg('Password berhasil diganti!')
       setNewPassword('')
+      setOldPassword('')
     } catch (err: any) {
       setErrorMsg(err.message || 'Gagal mengubah password.')
     } finally {
@@ -305,6 +326,16 @@ export const UserProfile: React.FC<UserProfileProps> = ({ onLogout }) => {
         {/* Change Password */}
         <form onSubmit={handleUpdatePassword} className="bg-white border rounded-xl p-5 shadow-sm">
           <h3 className="text-lg font-bold text-gray-800 mb-4">Ganti Password</h3>
+          <div className="mb-4">
+            <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">Password Lama</label>
+            <input
+              type="password"
+              className="w-full bg-white text-gray-950 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+              value={oldPassword}
+              onChange={(e) => setOldPassword(e.target.value)}
+              disabled={loading}
+            />
+          </div>
           <div className="mb-4">
             <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">Password Baru</label>
             <input

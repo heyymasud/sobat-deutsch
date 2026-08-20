@@ -14,6 +14,10 @@ export const ArtikelRush: React.FC = () => {
   const [score, setScore] = useState(0)
   const [timeLeft, setTimeLeft] = useState(30)
   const [highScore, setHighScore] = useState(0)
+  const [streak, setStreak] = useState(0)
+  const [highStreak, setHighStreak] = useState(0)
+  const [totalAnswered, setTotalAnswered] = useState(0)
+  const [correctAnswered, setCorrectAnswered] = useState(0)
   const [feedback, setFeedback] = useState<'correct' | 'incorrect' | null>(null)
   const [lastSelected, setLastSelected] = useState<string | null>(null)
   const [errorMsg, setErrorMsg] = useState('')
@@ -24,6 +28,7 @@ export const ArtikelRush: React.FC = () => {
   const [selectedDeckId, setSelectedDeckId] = useState<string>('')
   const [showAddModal, setShowAddModal] = useState(false)
   const [wordToAddToDeck, setWordToAddToDeck] = useState<DictionaryEntry | null>(null)
+  const [bulkAddMode, setBulkAddMode] = useState(false)
 
   const timerRef = useRef<NodeJS.Timeout | null>(null)
 
@@ -58,6 +63,10 @@ export const ArtikelRush: React.FC = () => {
 
   async function handleStartGame() {
     setScore(0)
+    setStreak(0)
+    setHighStreak(0)
+    setTotalAnswered(0)
+    setCorrectAnswered(0)
     setTimeLeft(30)
     setFeedback(null)
     setLastSelected(null)
@@ -151,17 +160,25 @@ export const ArtikelRush: React.FC = () => {
 
     setLastSelected(selectedGender)
     const isCorrect = currentWord.gender === selectedGender
+    setTotalAnswered((prev) => prev + 1)
 
     if (isCorrect) {
       setFeedback('correct')
       setScore((prev) => prev + 10)
+      setCorrectAnswered((prev) => prev + 1)
+      setStreak((prev) => {
+        const next = prev + 1
+        setHighStreak((prevHigh) => Math.max(prevHigh, next))
+        return next
+      })
       handlePlayAudio(currentWord.lemma, currentWord.gender)
-      
+
       setTimeout(() => {
         fetchNextWord()
       }, 700)
     } else {
       setFeedback('incorrect')
+      setStreak(0)
       handlePlayAudio(currentWord.lemma, currentWord.gender)
       try {
         const existing = await db.mistakeTracker.get(currentWord.lemma)
@@ -190,7 +207,63 @@ export const ArtikelRush: React.FC = () => {
 
   function triggerAddToDeck(word: DictionaryEntry) {
     setWordToAddToDeck(word)
+    setBulkAddMode(false)
     setShowAddModal(true)
+  }
+
+  function triggerAddAllToDeck() {
+    setWordToAddToDeck(null)
+    setBulkAddMode(true)
+    setShowAddModal(true)
+  }
+
+  async function confirmAddAllToDeck() {
+    if (!selectedDeckId) return
+    const wordsToAdd = recommendations.filter((r) => !r.recommendedToDeck).map((r) => r.word!)
+    if (wordsToAdd.length === 0) {
+      setShowAddModal(false)
+      setBulkAddMode(false)
+      return
+    }
+
+    try {
+      const deckId = parseInt(selectedDeckId, 10)
+      let addedCount = 0
+
+      // Single transaction for atomicity across all words (S9-08).
+      await db.transaction('rw', [db.srsCards, db.syncQueue, db.mistakeTracker], async () => {
+        for (const word of wordsToAdd) {
+          const existing = await db.srsCards
+            .where('deckId')
+            .equals(deckId)
+            .and((c) => c.wordRef === word.lemma)
+            .first()
+
+          if (existing) continue // duplicate-prevention, same rule as single add
+
+          const cards = generateCardsForWord(word, deckId)
+          for (const card of cards) {
+            const cardId = await db.srsCards.add(card as any)
+            await db.syncQueue.add({
+              action: 'insert',
+              entityTable: 'srsCards',
+              entityData: { id: cardId, ...card },
+              queuedAt: Date.now(),
+            })
+          }
+          await db.mistakeTracker.update(word.lemma, { recommendedToDeck: true })
+          addedCount++
+        }
+      })
+
+      alert(`Berhasil menambahkan ${addedCount} kata ke deck belajar!`)
+      setShowAddModal(false)
+      setBulkAddMode(false)
+      loadRecommendations()
+    } catch (err) {
+      console.error(err)
+      alert('Gagal menambahkan ke deck.')
+    }
   }
 
   async function confirmAddToDeck() {
@@ -289,6 +362,7 @@ export const ArtikelRush: React.FC = () => {
               {/* Header metrics */}
               <div className="flex justify-between items-center text-xs text-gray-400 mb-4">
                 <span className="font-semibold text-gray-800">Skor: {score}</span>
+                <span className="font-semibold text-gray-800">Streak: {streak}</span>
                 <span className="bg-indigo-50 text-indigo-700 font-bold px-2.5 py-1 rounded-full">
                   Waktu: {timeLeft}s
                 </span>
@@ -364,7 +438,15 @@ export const ArtikelRush: React.FC = () => {
           {gameState === 'ended' && (
             <div className="my-auto">
               <h2 className="text-3xl font-extrabold text-gray-900 mb-2">Game Over!</h2>
-              <p className="text-lg text-gray-600 mb-6">Skor Anda: <strong className="text-indigo-600 text-2xl">{score}</strong></p>
+              <p className="text-lg text-gray-600 mb-2">Skor Anda: <strong className="text-indigo-600 text-2xl">{score}</strong></p>
+              <p className="text-sm text-gray-500 mb-1">
+                Akurasi: <strong className="text-gray-700">
+                  {totalAnswered > 0 ? Math.round((correctAnswered / totalAnswered) * 100) : 0}%
+                </strong>
+              </p>
+              <p className="text-sm text-gray-500 mb-6">
+                Streak Tertinggi: <strong className="text-gray-700">{highStreak}</strong>
+              </p>
               <div className="flex gap-4 justify-center">
                 <button
                   onClick={handleStartGame}
@@ -386,12 +468,22 @@ export const ArtikelRush: React.FC = () => {
 
       {/* Recommendations Panel */}
       <div className="bg-white border border-gray-200 rounded-2xl shadow-md p-6 h-fit">
-        <h3 className="text-lg font-bold text-gray-800 mb-4 flex items-center gap-1.5">
-          <svg className="w-5 h-5 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-          </svg>
-          Rekomendasi Belajar
-        </h3>
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-lg font-bold text-gray-800 flex items-center gap-1.5">
+            <svg className="w-5 h-5 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            Rekomendasi Belajar
+          </h3>
+          {recommendations.some((r) => !r.recommendedToDeck) && (
+            <button
+              onClick={triggerAddAllToDeck}
+              className="text-indigo-600 hover:text-indigo-800 font-bold hover:bg-indigo-50 border border-indigo-200 px-2 py-1 rounded transition text-[10px] whitespace-nowrap"
+            >
+              Tambahkan Semua
+            </button>
+          )}
+        </div>
         <p className="text-xs text-gray-400 mb-4">
           Daftar kata benda yang paling sering salah saat kuis. Tambahkan ke deck flashcard untuk dipelajari di SRS.
         </p>
@@ -439,12 +531,27 @@ export const ArtikelRush: React.FC = () => {
       </div>
 
       {/* Add To Deck Modal */}
-      {showAddModal && wordToAddToDeck && (
+      {showAddModal && (bulkAddMode || wordToAddToDeck) && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
           <div className="bg-white rounded-2xl shadow-xl max-w-sm w-full p-6 text-left border border-gray-100">
-            <h3 className="text-lg font-bold text-gray-900 mb-3">Tambah Rekomendasi Kata</h3>
+            <h3 className="text-lg font-bold text-gray-900 mb-3">
+              {bulkAddMode ? 'Tambah Semua Rekomendasi' : 'Tambah Rekomendasi Kata'}
+            </h3>
             <p className="text-sm text-gray-500 mb-4">
-              Pilih deck tujuan untuk mendaftarkan kata <strong className="text-gray-800">"{wordToAddToDeck.lemma}"</strong>.
+              {bulkAddMode ? (
+                <>
+                  Pilih deck tujuan untuk mendaftarkan{' '}
+                  <strong className="text-gray-800">
+                    {recommendations.filter((r) => !r.recommendedToDeck).length} kata
+                  </strong>{' '}
+                  rekomendasi sekaligus.
+                </>
+              ) : (
+                <>
+                  Pilih deck tujuan untuk mendaftarkan kata{' '}
+                  <strong className="text-gray-800">"{wordToAddToDeck!.lemma}"</strong>.
+                </>
+              )}
             </p>
             
             {decks.length === 0 ? (
@@ -470,6 +577,7 @@ export const ArtikelRush: React.FC = () => {
                 onClick={() => {
                   setShowAddModal(false)
                   setWordToAddToDeck(null)
+                  setBulkAddMode(false)
                 }}
                 className="px-4 py-2 border rounded-lg hover:bg-gray-50 text-gray-600 transition"
               >
@@ -477,7 +585,7 @@ export const ArtikelRush: React.FC = () => {
               </button>
               <button
                 disabled={decks.length === 0}
-                onClick={confirmAddToDeck}
+                onClick={bulkAddMode ? confirmAddAllToDeck : confirmAddToDeck}
                 className={`px-4 py-2 text-white font-semibold rounded-lg transition ${
                   decks.length > 0
                     ? 'bg-indigo-600 hover:bg-indigo-700 shadow-sm'

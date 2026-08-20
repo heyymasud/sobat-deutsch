@@ -114,6 +114,7 @@ export const generateCardsForWord = (word: DictionaryEntry, deckId: number): Omi
     repetitions: 0,
     dueDate: now,
     createdAt: now,
+    updatedAt: now,
   })
 
   const isNoun = word.pos?.toLowerCase() === 'noun'
@@ -131,6 +132,7 @@ export const generateCardsForWord = (word: DictionaryEntry, deckId: number): Omi
         repetitions: 0,
         dueDate: now,
         createdAt: now,
+        updatedAt: now,
       })
     }
 
@@ -145,6 +147,7 @@ export const generateCardsForWord = (word: DictionaryEntry, deckId: number): Omi
         repetitions: 0,
         dueDate: now,
         createdAt: now,
+        updatedAt: now,
       })
     }
   }
@@ -161,6 +164,7 @@ export const generateCardsForWord = (word: DictionaryEntry, deckId: number): Omi
         repetitions: 0,
         dueDate: now,
         createdAt: now,
+        updatedAt: now,
       })
     }
 
@@ -175,9 +179,47 @@ export const generateCardsForWord = (word: DictionaryEntry, deckId: number): Omi
         repetitions: 0,
         dueDate: now,
         createdAt: now,
+        updatedAt: now,
       })
     }
   }
 
   return cards
+}
+
+/**
+ * S9-05 (AC-SRS-07, BR-SRS-07): Pattern Drill hanya boleh tampil SEKALI per
+ * ablaut_class yang baru ditemui, bukan setiap kali kartu jenis itu muncul.
+ * seenClasses adalah state persisten (mis. dari localStorage) berisi ablaut_class
+ * yang sudah pernah ditampilkan drill-nya.
+ */
+export const shouldShowPatternDrill = (
+  ablautClass: string | null | undefined,
+  seenClasses: Set<string>
+): boolean => {
+  if (!ablautClass) return false
+  return !seenClasses.has(ablautClass)
+}
+
+/**
+ * S9-06 (AC-SRS-09): akurasi sesi = proporsi rating "Baik"/"Mudah" (>=3) dari
+ * seluruh rating yang diberikan selama sesi.
+ */
+export const calculateAccuracy = (ratings: number[]): number => {
+  if (ratings.length === 0) return 0
+  const correct = ratings.filter((r) => r >= 3).length
+  return correct / ratings.length
+}
+
+/**
+ * S9-07 (AC-SRS-11): state sesi yang persisted dianggap basi (jangan di-resume)
+ * kalau sudah lebih tua dari maxAgeMs (default 6 jam) — mencegah resume ke sesi
+ * kemarin yang sudah tidak relevan lagi dengan antrean due hari ini.
+ */
+export const isSessionStateFresh = (
+  savedAt: number,
+  now: number,
+  maxAgeMs: number = 6 * 60 * 60 * 1000
+): boolean => {
+  return now - savedAt < maxAgeMs
 }

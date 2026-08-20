@@ -23,3 +23,16 @@ body {
 html.dark body {
   @apply bg-slate-950 text-slate-100;
 }
+
+/* AC-UX-05 / NFR-UX-05: honor prefers-reduced-motion globally instead of
+   patching every animate-spin/animate-pulse/transition usage individually. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

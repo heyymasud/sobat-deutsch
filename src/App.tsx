@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { SearchBar } from './modules/dictionary/components/SearchBar'
 import { WordDetail } from './modules/dictionary/components/WordDetail'
 import { SyncIndicator } from './modules/sync/components/SyncIndicator'
+import { SrsSyncIndicator } from './modules/sync/components/SrsSyncIndicator'
 import { DeckManager } from './modules/srs/components/DeckManager'
 import { ReviewSession } from './modules/srs/components/ReviewSession'
 import { AuthForm } from './modules/auth/components/AuthForm'
@@ -263,7 +264,10 @@ function App() {
                 {darkMode ? '☀️' : '🌙'}
               </button>
             </nav>
-            <SyncIndicator />
+            <div className="flex flex-col items-end gap-1.5">
+              <SyncIndicator />
+              <SrsSyncIndicator />
+            </div>
           </div>
         </div>
       </header>

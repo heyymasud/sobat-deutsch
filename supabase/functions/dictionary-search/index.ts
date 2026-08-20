@@ -53,7 +53,9 @@ export default {
       const { data, error } = await supabase
         .from("dictionary")
         .select("id, lemma, pos, gender, plural, translations, level, frequency_rank")
-        .or(`lemma.ilike.${query}%,lemma.imatch.${regexPattern}`)
+        // PostgREST or() syntax treats (),|, and , as delimiters, so values
+        // containing them (our regex alternation) must be double-quoted.
+        .or(`lemma.ilike."${query}%",lemma.imatch."${regexPattern}"`)
         .order("frequency_rank", { nullsFirst: false })
         .limit(20);
 

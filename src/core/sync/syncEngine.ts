@@ -4,13 +4,56 @@ import { supabase } from '../api/supabaseClient'
 // Local numeric rating (1-4, see ReviewSession keyboard shortcuts) -> server text rating (BR-SYNC-03 schema check).
 const RATING_LABELS = ['lupa', 'sulit', 'sedang', 'mudah'] as const
 
+// S9-02 (AC-SYNC-01, AC-SYNC-03, FR-SYNC-06): status surface for the decks/srsCards/
+// reviewLogs push queue, distinct from syncManager's dictionary-download status.
+export interface SyncEngineStatus {
+  state: 'idle' | 'syncing' | 'synced' | 'error'
+  pendingCount: number
+  error: string | null
+}
+
+export type SyncEngineListener = (status: SyncEngineStatus) => void
+
 class DictionarySyncEngine {
   private isSyncing = false
   private onlineStatus = navigator.onLine
+  private listeners = new Set<SyncEngineListener>()
+  // ponytail: tracked incrementally via Dexie hooks below instead of re-querying
+  // db.syncQueue.count() on every change — cheap and avoids a query per card rating.
+  private pendingCount = 0
+  private status: SyncEngineStatus = { state: 'idle', pendingCount: 0, error: null }
 
   constructor() {
     window.addEventListener('online', () => this.handleNetworkChange(true))
     window.addEventListener('offline', () => this.handleNetworkChange(false))
+
+    db.syncQueue.count().then((count) => {
+      this.pendingCount = count
+      this.updateStatus({ pendingCount: count, state: count === 0 ? 'synced' : 'idle' })
+    })
+    db.syncQueue.hook('creating', () => {
+      this.pendingCount++
+      this.updateStatus({ pendingCount: this.pendingCount, state: this.isSyncing ? 'syncing' : 'idle' })
+    })
+    db.syncQueue.hook('deleting', () => {
+      this.pendingCount = Math.max(0, this.pendingCount - 1)
+      if (!this.isSyncing) {
+        this.updateStatus({ pendingCount: this.pendingCount, state: this.pendingCount === 0 ? 'synced' : 'idle' })
+      }
+    })
+  }
+
+  public subscribe(listener: SyncEngineListener): () => void {
+    this.listeners.add(listener)
+    listener(this.status)
+    return () => {
+      this.listeners.delete(listener)
+    }
+  }
+
+  private updateStatus(patch: Partial<SyncEngineStatus>) {
+    this.status = { ...this.status, ...patch }
+    this.listeners.forEach((l) => l(this.status))
   }
 
   private handleNetworkChange(online: boolean) {
@@ -114,7 +157,8 @@ class DictionarySyncEngine {
             easeFactor: parseFloat(c.ease_factor),
             repetitions: c.repetitions,
             dueDate: new Date(c.due_date).getTime(),
-            createdAt: new Date(c.created_at).getTime()
+            createdAt: new Date(c.created_at).getTime(),
+            updatedAt: new Date(c.updated_at).getTime()
           })
         }
       })
@@ -135,10 +179,17 @@ class DictionarySyncEngine {
     if (!session) return // Syncing only for authenticated users
 
     const queueItems = await db.syncQueue.orderBy('queuedAt').toArray()
-    if (queueItems.length === 0) return
+    if (queueItems.length === 0) {
+      this.updateStatus({ state: 'synced', pendingCount: 0, error: null })
+      return
+    }
 
     this.isSyncing = true
+    this.updateStatus({ state: 'syncing', error: null })
     console.log(`SyncEngine: pushing ${queueItems.length} items to server...`)
+
+    let failedCount = 0
+    let lastError: string | null = null
 
     try {
       for (const item of queueItems) {
@@ -147,13 +198,23 @@ class DictionarySyncEngine {
         // queued so the next triggerSync() retries it. Never delete-then-lose data.
         if (pushed) {
           await db.syncQueue.delete(item.id!)
+        } else {
+          failedCount++
+          lastError = `Gagal menyinkronkan item ${item.entityTable}`
         }
       }
       console.log('SyncEngine: push complete.')
     } catch (err) {
       console.error('Sync failed:', err)
+      failedCount++
+      lastError = err instanceof Error ? err.message : 'Sync gagal'
     } finally {
       this.isSyncing = false
+      this.updateStatus({
+        state: failedCount > 0 ? 'error' : 'synced',
+        pendingCount: this.pendingCount,
+        error: failedCount > 0 ? lastError : null,
+      })
     }
   }
 
@@ -169,18 +230,25 @@ class DictionarySyncEngine {
         const localCard = await db.srsCards.get(item.entityData.id)
         if (!localCard) return true // card no longer exists locally, nothing to sync
 
-        // Upsert card to Postgres. RLS handles user matching. We lookup by deck_id, word_ref, and card_type
-        const { error } = await supabase
-          .from('srs_cards')
-          .upsert({
-            word_ref: localCard.wordRef,
-            card_type: localCard.cardType,
-            interval: item.entityData.interval,
-            ease_factor: item.entityData.easeFactor,
-            repetitions: item.entityData.repetitions,
-            due_date: new Date(item.entityData.dueDate).toISOString().split('T')[0],
-            user_id: userId
-          }, { onConflict: 'deck_id,word_ref,card_type' })
+        const localDeck = await db.decks.get(localCard.deckId)
+        if (!localDeck?.serverId) return false // deck hasn't synced yet — retry after it does
+
+        // Conditional upsert via RPC (S9-01, BR-SYNC-02): a plain PostgREST upsert
+        // always overwrites on conflict (arrival-order wins). The RPC only writes
+        // when the incoming updated_at is newer than what's stored, so a stale
+        // push arriving after a newer one never clobbers it.
+        const updatedAtMs = item.entityData.updatedAt ?? Date.now()
+        const { error } = await supabase.rpc('upsert_srs_card_if_newer', {
+          p_deck_id: localDeck.serverId,
+          p_word_ref: localCard.wordRef,
+          p_card_type: localCard.cardType,
+          p_interval: item.entityData.interval,
+          p_ease_factor: item.entityData.easeFactor,
+          p_repetitions: item.entityData.repetitions,
+          p_due_date: new Date(item.entityData.dueDate).toISOString().split('T')[0],
+          p_state: item.entityData.state ?? null,
+          p_updated_at: new Date(updatedAtMs).toISOString()
+        })
 
         if (error) {
           console.error('Error syncing card update:', error)

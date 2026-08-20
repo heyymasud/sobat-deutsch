@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react'
 import { db } from '../../../core/db/dictionaryDb'
 import type { SrsCard, ReviewLog } from '../../../core/db/dictionaryDb'
-import { calculateSm2, interleaveByKey } from '../../../core/srs/srsScheduler'
+import { calculateSm2, interleaveByKey, shouldShowPatternDrill, calculateAccuracy, isSessionStateFresh } from '../../../core/srs/srsScheduler'
 import type { DictionaryEntry } from '../../dictionary/types'
 
 interface ReviewItem {
@@ -14,17 +14,98 @@ interface ReviewSessionProps {
   onFinish: () => void
 }
 
+interface SessionSummary {
+  reviewed: number
+  accuracy: number
+  dueTomorrow: number
+}
+
+// S9-07 (AC-SRS-11): kunci localStorage untuk resume sesi persis dari posisi terakhir.
+const sessionStateKey = (deckId: number) => `srs_session_state_${deckId}`
+
+interface PersistedSessionState {
+  cardIds: number[]
+  currentIndex: number
+  savedAt: number
+}
+
+const loadPersistedSession = (deckId: number): PersistedSessionState | null => {
+  try {
+    const raw = localStorage.getItem(sessionStateKey(deckId))
+    if (!raw) return null
+    const parsed = JSON.parse(raw) as PersistedSessionState
+    if (!isSessionStateFresh(parsed.savedAt, Date.now())) return null
+    if (!Array.isArray(parsed.cardIds)) return null
+    return parsed
+  } catch {
+    return null
+  }
+}
+
+const savePersistedSession = (deckId: number, cardIds: number[], currentIndex: number) => {
+  const state: PersistedSessionState = { cardIds, currentIndex, savedAt: Date.now() }
+  localStorage.setItem(sessionStateKey(deckId), JSON.stringify(state))
+}
+
+const clearPersistedSession = (deckId: number) => {
+  localStorage.removeItem(sessionStateKey(deckId))
+}
+
+// S9-05 (AC-SRS-07, BR-SRS-07): kunci localStorage untuk ablaut_class yang sudah
+// pernah ditampilkan Pattern Drill-nya (per device, tidak perlu sync ke server).
+const SEEN_ABLAUT_CLASSES_KEY = 'seen_ablaut_classes'
+
+const loadSeenAblautClasses = (): Set<string> => {
+  try {
+    const raw = localStorage.getItem(SEEN_ABLAUT_CLASSES_KEY)
+    return new Set(raw ? JSON.parse(raw) : [])
+  } catch {
+    return new Set()
+  }
+}
+
+const saveSeenAblautClasses = (classes: Set<string>) => {
+  localStorage.setItem(SEEN_ABLAUT_CLASSES_KEY, JSON.stringify([...classes]))
+}
+
 export const ReviewSession: React.FC<ReviewSessionProps> = ({ deckId, onFinish }) => {
   const [queue, setQueue] = useState<ReviewItem[]>([])
   const [currentIndex, setCurrentIndex] = useState(0)
   const [showAnswer, setShowAnswer] = useState(false)
   const [loading, setLoading] = useState(true)
   const [errorMsg, setErrorMsg] = useState('')
+  const [seenAblautClasses, setSeenAblautClasses] = useState<Set<string>>(() => loadSeenAblautClasses())
+  const [sessionRatings, setSessionRatings] = useState<number[]>([])
+  const [summary, setSummary] = useState<SessionSummary | null>(null)
 
   const loadSessionQueue = useCallback(async () => {
     setLoading(true)
     setErrorMsg('')
+    setSummary(null)
+    setSessionRatings([])
     try {
+      // 0. S9-07 (AC-SRS-11): kalau ada sesi in-progress yang belum basi, resume
+      // PERSIS dari posisi terakhir alih-alih re-derive antrean due dari awal.
+      const persisted = loadPersistedSession(deckId)
+      if (persisted && persisted.cardIds.length > 0) {
+        const items: ReviewItem[] = []
+        for (const cardId of persisted.cardIds) {
+          const card = await db.srsCards.get(cardId)
+          if (!card || (card as any).state === 'suspended') continue
+          const word = await db.dictionary.where('lemma').equals(card.wordRef).first()
+          if (word) items.push({ card, word })
+        }
+        if (items.length > 0) {
+          setQueue(items)
+          setCurrentIndex(Math.min(persisted.currentIndex, items.length - 1))
+          setShowAnswer(false)
+          setLoading(false)
+          return
+        }
+        // Semua kartu tersimpan sudah tidak valid (mis. sudah disuspend) -> buang state basi.
+        clearPersistedSession(deckId)
+      }
+
       // 1. Fetch daily limit configuration (S7-03)
       const dailyNewLimit = parseInt(localStorage.getItem('daily_new_limit') || '20', 10)
       const dailyReviewLimit = parseInt(localStorage.getItem('daily_review_limit') || '100', 10)
@@ -110,6 +191,7 @@ export const ReviewSession: React.FC<ReviewSessionProps> = ({ deckId, onFinish }
       setQueue(interleaved)
       setCurrentIndex(0)
       setShowAnswer(false)
+      savePersistedSession(deckId, interleaved.map((i) => i.card.id!), 0)
     } catch (err) {
       console.error('Failed to load review queue:', err)
       setErrorMsg('Gagal memuat kartu belajar.')
@@ -122,6 +204,22 @@ export const ReviewSession: React.FC<ReviewSessionProps> = ({ deckId, onFinish }
     loadSessionQueue()
   }, [loadSessionQueue])
 
+  // S9-05 (AC-SRS-07): setelah kartu arti kata kerja dengan ablaut_class baru
+  // ditampilkan, tandai kelasnya sebagai sudah dilihat supaya Pattern Drill
+  // tidak muncul lagi untuk kelas yang sama di kartu-kartu berikutnya.
+  useEffect(() => {
+    const currentItem = queue[currentIndex]
+    if (!showAnswer || !currentItem) return
+    const ablautClass = currentItem.word.ablaut_class
+    if (ablautClass && shouldShowPatternDrill(ablautClass, seenAblautClasses)) {
+      const updated = new Set(seenAblautClasses)
+      updated.add(ablautClass)
+      setSeenAblautClasses(updated)
+      saveSeenAblautClasses(updated)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showAnswer, currentIndex, queue])
+
   const handlePlayAudio = (lemma: string) => {
     if ('speechSynthesis' in window) {
       window.speechSynthesis.cancel()
@@ -130,6 +228,24 @@ export const ReviewSession: React.FC<ReviewSessionProps> = ({ deckId, onFinish }
       window.speechSynthesis.speak(utterance)
     }
   };
+
+  const finishSession = useCallback(async (ratings: number[]) => {
+    // S9-06 (AC-SRS-09, FR-SRS-15): layar ringkasan sungguhan, bukan alert().
+    let dueTomorrow = 0
+    try {
+      const tomorrowEnd = new Date().setHours(24, 0, 0, 0) + 24 * 60 * 60 * 1000
+      const cards = await db.srsCards.where('deckId').equals(deckId).toArray()
+      dueTomorrow = cards.filter((c) => (c as any).state !== 'suspended' && c.dueDate <= tomorrowEnd).length
+    } catch (err) {
+      console.error('Failed to compute next-review schedule:', err)
+    }
+    clearPersistedSession(deckId)
+    setSummary({
+      reviewed: ratings.length,
+      accuracy: calculateAccuracy(ratings),
+      dueTomorrow,
+    })
+  }, [deckId]);
 
   const handleRating = useCallback(async (rating: number) => {
     if (queue.length === 0) return
@@ -143,11 +259,13 @@ export const ReviewSession: React.FC<ReviewSessionProps> = ({ deckId, onFinish }
     try {
       await db.transaction('rw', [db.srsCards, db.reviewLogs, db.syncQueue], async () => {
         // 1. Update SrsCard
+        const updatedAt = Date.now()
         await db.srsCards.update(card.id!, {
           interval: nextState.interval,
           easeFactor: nextState.easeFactor,
           repetitions: nextState.repetitions,
           dueDate: nextState.dueDate,
+          updatedAt,
         })
 
         // 2. Write to ReviewLog
@@ -164,7 +282,7 @@ export const ReviewSession: React.FC<ReviewSessionProps> = ({ deckId, onFinish }
         await db.syncQueue.add({
           action: 'update',
           entityTable: 'srsCards',
-          entityData: { id: card.id!, ...nextState },
+          entityData: { id: card.id!, ...nextState, updatedAt },
           queuedAt: Date.now(),
         })
 
@@ -177,25 +295,29 @@ export const ReviewSession: React.FC<ReviewSessionProps> = ({ deckId, onFinish }
         })
       })
 
+      const updatedRatings = [...sessionRatings, rating]
+      setSessionRatings(updatedRatings)
+
       // Move to next card
       if (currentIndex < queue.length - 1) {
-        setCurrentIndex(currentIndex + 1)
+        const nextIndex = currentIndex + 1
+        setCurrentIndex(nextIndex)
         setShowAnswer(false)
+        savePersistedSession(deckId, queue.map((i) => i.card.id!), nextIndex)
       } else {
-        // Sesi selesai
-        alert('Hebat! Anda menyelesaikan sesi belajar kali ini.')
-        onFinish()
+        // Sesi selesai (S9-06: ringkasan sungguhan, bukan alert)
+        await finishSession(updatedRatings)
       }
     } catch (err) {
       console.error('Failed to save card rating:', err)
       alert('Gagal menyimpan kemajuan belajar.')
     }
-  }, [queue, currentIndex, onFinish]);
+  }, [queue, currentIndex, sessionRatings, deckId, finishSession]);
 
   // Keyboard Shortcuts (S8-03 Keyboard Only)
   useEffect(() => {
     function handleKeyDown(e: KeyboardEvent) {
-      if (queue.length === 0 || loading) return
+      if (queue.length === 0 || loading || summary) return
 
       if (e.key === ' ' || e.key === 'Enter') {
         e.preventDefault()
@@ -223,7 +345,7 @@ export const ReviewSession: React.FC<ReviewSessionProps> = ({ deckId, onFinish }
     return () => {
       window.removeEventListener('keydown', handleKeyDown)
     }
-  }, [queue, currentIndex, showAnswer, loading, handleRating])
+  }, [queue, currentIndex, showAnswer, loading, handleRating, summary])
 
   const handleSuspend = async () => {
     const currentItem = queue[currentIndex]
@@ -235,25 +357,33 @@ export const ReviewSession: React.FC<ReviewSessionProps> = ({ deckId, onFinish }
 
     try {
       await db.transaction('rw', [db.srsCards, db.syncQueue], async () => {
-        await db.srsCards.update(card.id!, { state: 'suspended' as any })
+        const updatedAt = Date.now()
+        await db.srsCards.update(card.id!, { state: 'suspended' as any, updatedAt })
         await db.syncQueue.add({
           action: 'update',
           entityTable: 'srsCards',
-          entityData: { id: card.id!, state: 'suspended' },
+          entityData: { id: card.id!, interval: card.interval, easeFactor: card.easeFactor, repetitions: card.repetitions, dueDate: card.dueDate, state: 'suspended', updatedAt },
           queuedAt: Date.now()
         })
       })
 
       if (currentIndex < queue.length - 1) {
-        setCurrentIndex(currentIndex + 1)
+        const nextIndex = currentIndex + 1
+        setCurrentIndex(nextIndex)
         setShowAnswer(false)
+        savePersistedSession(deckId, queue.map((i) => i.card.id!), nextIndex)
       } else {
-        onFinish()
+        await finishSession(sessionRatings)
       }
     } catch (err) {
       console.error(err)
       alert('Gagal menangguhkan kartu.')
     }
+  };
+
+  const handleSummaryDone = () => {
+    setSummary(null)
+    onFinish()
   };
 
   if (loading) {
@@ -272,6 +402,37 @@ export const ReviewSession: React.FC<ReviewSessionProps> = ({ deckId, onFinish }
     return (
       <div className="bg-red-50 text-red-700 p-4 rounded-lg border border-red-200 my-6 max-w-xl mx-auto text-left">
         {errorMsg}
+      </div>
+    )
+  }
+
+  // S9-06 (AC-SRS-09, FR-SRS-15): layar ringkasan sesi sungguhan setelah kartu terakhir dinilai.
+  if (summary) {
+    return (
+      <div className="max-w-md mx-auto my-6 px-4 text-center">
+        <div className="bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-800 rounded-2xl shadow-md p-8">
+          <h2 className="text-2xl font-bold text-gray-800 dark:text-slate-100 mb-6">Sesi Selesai!</h2>
+          <div className="grid grid-cols-1 gap-4 text-left mb-6">
+            <div className="flex justify-between items-center border-b dark:border-slate-800 pb-2">
+              <span className="text-sm text-gray-500 dark:text-gray-400">Kartu direview</span>
+              <span className="text-lg font-bold text-gray-900 dark:text-slate-100">{summary.reviewed}</span>
+            </div>
+            <div className="flex justify-between items-center border-b dark:border-slate-800 pb-2">
+              <span className="text-sm text-gray-500 dark:text-gray-400">Akurasi</span>
+              <span className="text-lg font-bold text-indigo-600 dark:text-indigo-400">{Math.round(summary.accuracy * 100)}%</span>
+            </div>
+            <div className="flex justify-between items-center">
+              <span className="text-sm text-gray-500 dark:text-gray-400">Jadwal berikutnya</span>
+              <span className="text-lg font-bold text-gray-900 dark:text-slate-100">{summary.dueTomorrow} kartu besok</span>
+            </div>
+          </div>
+          <button
+            onClick={handleSummaryDone}
+            className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold h-[48px] rounded-xl transition shadow-sm text-sm"
+          >
+            Kembali ke Manajemen Deck
+          </button>
+        </div>
       </div>
     )
   }
@@ -382,24 +543,35 @@ export const ReviewSession: React.FC<ReviewSessionProps> = ({ deckId, onFinish }
           </div>
         )
       case 'arti':
-      default:
+      default: {
+        // S9-04 (AC-SRS-03, BR-SRS-05): kartu arti kata kerja tidak boleh diam-diam
+        // menjadi pasangan kata+arti polos kalau contoh kalimat kosong — tampilkan
+        // marker eksplisit, konsisten dengan pola null-handling BR-DICT-07 di
+        // WordDetail.tsx ("data tidak tersedia").
+        const isVerb = word.pos?.toLowerCase() === 'verb'
         return (
           <div className="text-center px-4">
             <div className="text-sm uppercase text-gray-400 font-semibold mb-2">Terjemahan:</div>
             <div className="text-xl font-bold text-gray-900 dark:text-slate-100 leading-relaxed mb-4">{word.translations}</div>
-            {word.example && (
+            {word.example ? (
               <div className="mt-4 p-3 bg-gray-50 dark:bg-slate-900 border-l-4 border-indigo-500 rounded-r-lg italic text-left text-sm text-gray-700 dark:text-slate-300">
                 {word.example}
               </div>
-            )}
-            
-            {word.ablaut_class && (
+            ) : isVerb ? (
+              <div className="mt-4 p-3 bg-gray-50 dark:bg-slate-900 border-l-4 border-gray-300 dark:border-slate-700 rounded-r-lg italic text-left text-sm text-gray-400">
+                Contoh kalimat belum tersedia
+              </div>
+            ) : null}
+
+            {/* S9-05 (AC-SRS-07, BR-SRS-07): Pattern Drill hanya SEKALI per ablaut_class baru */}
+            {isVerb && shouldShowPatternDrill(word.ablaut_class, seenAblautClasses) && (
               <div className="mt-4 p-3 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900 rounded-lg text-left text-xs text-amber-900 dark:text-amber-300">
                 💡 **Pattern Drill (Ablaut)**: Kata kerja ini mengikuti pola perubahan kelas **{word.ablaut_class}**.
               </div>
             )}
           </div>
         )
+      }
     }
   };
 
@@ -430,7 +602,7 @@ export const ReviewSession: React.FC<ReviewSessionProps> = ({ deckId, onFinish }
           >
             [ Tangguhkan ]
           </button>
-          
+
           <button
             onClick={() => handlePlayAudio(word.lemma)}
             className="p-1.5 rounded-full hover:bg-gray-100 dark:hover:bg-slate-800 text-gray-400 hover:text-indigo-600 transition min-w-[44px] min-h-[44px] flex items-center justify-center"
