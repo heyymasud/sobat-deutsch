@@ -113,6 +113,47 @@ describe('DictionarySyncManager', () => {
     expect(db.dictionary.bulkAdd).toHaveBeenCalledWith(entries)
   })
 
+  it('two concurrent checkForUpdates() calls (e.g. React StrictMode double-invoking an effect) only run one download, not two interleaved ones', async () => {
+    const { syncManager } = await import('./syncManager')
+    setupCommonMocks(1)
+
+    vi.mocked(supabase.from).mockReturnValue({
+      select: () => ({
+        limit: () => ({
+          single: () => Promise.resolve({ data: { version: 2, row_count: 1, checksum: 'abc' }, error: null }),
+        }),
+      }),
+    } as any)
+
+    vi.mocked(supabase.storage.from).mockReturnValue({
+      getPublicUrl: () => ({ data: { publicUrl: 'https://example.com/dict.json' } }),
+    } as any)
+
+    const entries = [{ id: 1, lemma: 'Haus' }]
+    vi.mocked(db.dictionaryStaging.count).mockResolvedValue(entries.length)
+    vi.mocked(db.dictionaryStaging.offset).mockReturnValue({
+      limit: () => ({ toArray: vi.fn().mockResolvedValue(entries) }),
+    } as any)
+    vi.mocked(db.transaction).mockImplementation((async (_mode: any, _tables: any, cb: any) => cb()) as typeof db.transaction)
+
+    MockXHR.nextResponseText = JSON.stringify(entries)
+
+    // Fire twice back-to-back, synchronously, before either has a chance to
+    // reach its first await -- this is exactly what StrictMode's double effect
+    // invocation (or a background check racing a manual retry) produces.
+    await Promise.all([syncManager.checkForUpdates(), syncManager.checkForUpdates()])
+    await new Promise((r) => setTimeout(r, 10))
+
+    // Only one download should have actually run -- one XHR issued and one
+    // staging write pass (bulkPut once for the single-entry batch), not two
+    // interleaved downloads corrupting the local dataset. (dictionaryStaging.clear()
+    // legitimately runs twice per single successful download -- once before writing,
+    // once after the atomic swap copies into `dictionary` -- so that count alone
+    // wouldn't distinguish one run from two; bulkPut call count does.)
+    expect(MockXHR.instances.length).toBe(1)
+    expect(db.dictionaryStaging.bulkPut).toHaveBeenCalledTimes(1)
+  })
+
   it('reports up-to-date (no download) when local version already matches server version', async () => {
     const { syncManager } = await import('./syncManager')
     setupCommonMocks(2)

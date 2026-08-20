@@ -50,12 +50,16 @@ export default {
 
       // Query database: Search by prefix case-insensitive regex or FTS
       // We search words table directly
+      // Also match `translations` (e.g. searching the English/Indonesian word
+      // "pencil" should surface "Bleistift") -- otherwise this online path
+      // silently supports fewer queries than the local MiniSearch index, which
+      // already indexes both `lemma` and `translations` fields.
       const { data, error } = await supabase
         .from("dictionary")
         .select("id, lemma, pos, gender, plural, translations, level, frequency_rank")
         // PostgREST or() syntax treats (),|, and , as delimiters, so values
         // containing them (our regex alternation) must be double-quoted.
-        .or(`lemma.ilike."${query}%",lemma.imatch."${regexPattern}"`)
+        .or(`lemma.ilike."${query}%",lemma.imatch."${regexPattern}",translations.ilike."%${query}%"`)
         .order("frequency_rank", { nullsFirst: false })
         .limit(20);
 

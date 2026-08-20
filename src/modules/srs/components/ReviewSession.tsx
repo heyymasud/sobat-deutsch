@@ -3,6 +3,7 @@ import { db } from '../../../core/db/dictionaryDb'
 import type { SrsCard, ReviewLog } from '../../../core/db/dictionaryDb'
 import { calculateSm2, interleaveByKey, shouldShowPatternDrill, calculateAccuracy, isSessionStateFresh } from '../../../core/srs/srsScheduler'
 import type { DictionaryEntry } from '../../dictionary/types'
+import { syncEngine } from '../../../core/sync/syncEngine'
 
 interface ReviewItem {
   card: SrsCard
@@ -294,6 +295,7 @@ export const ReviewSession: React.FC<ReviewSessionProps> = ({ deckId, onFinish }
           queuedAt: Date.now(),
         })
       })
+      syncEngine.triggerSync()
 
       const updatedRatings = [...sessionRatings, rating]
       setSessionRatings(updatedRatings)
@@ -366,6 +368,7 @@ export const ReviewSession: React.FC<ReviewSessionProps> = ({ deckId, onFinish }
           queuedAt: Date.now()
         })
       })
+      syncEngine.triggerSync()
 
       if (currentIndex < queue.length - 1) {
         const nextIndex = currentIndex + 1

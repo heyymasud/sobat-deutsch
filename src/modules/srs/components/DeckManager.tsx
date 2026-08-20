@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react'
 import { db } from '../../../core/db/dictionaryDb'
 import type { Deck } from '../../../core/db/dictionaryDb'
 import { topMistakes } from './mistakeStats'
+import { syncEngine } from '../../../core/sync/syncEngine'
 
 interface DeckWithStats extends Deck {
   totalCount: number
@@ -146,6 +147,7 @@ export const DeckManager: React.FC<DeckManagerProps> = ({ onStartReview }) => {
 
       setNewDeckName('')
       loadDecks()
+      syncEngine.triggerSync()
     } catch (err) {
       console.error('Failed to create deck:', err)
       alert('Gagal membuat deck baru.')
@@ -173,6 +175,7 @@ export const DeckManager: React.FC<DeckManagerProps> = ({ onStartReview }) => {
 
       setEditingDeckId(null)
       loadDecks()
+      syncEngine.triggerSync()
     } catch (err) {
       console.error('Failed to rename deck:', err)
       alert('Gagal mengubah nama deck.')
@@ -201,6 +204,7 @@ export const DeckManager: React.FC<DeckManagerProps> = ({ onStartReview }) => {
       })
 
       loadDecks()
+      syncEngine.triggerSync()
     } catch (err) {
       console.error('Failed to delete deck:', err)
       alert('Gagal menghapus deck.')

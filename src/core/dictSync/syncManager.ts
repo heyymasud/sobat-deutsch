@@ -16,6 +16,7 @@ export type SyncListener = (status: SyncStatus) => void
 
 class DictionarySyncManager {
   private listeners = new Set<SyncListener>()
+  private inFlightCheck: Promise<void> | null = null
   private status: SyncStatus = {
     downloadState: 'idle',
     downloadProgress: 0,
@@ -86,10 +87,26 @@ class DictionarySyncManager {
    * Checks the server dictionary version and triggers background download if needed.
    */
   public async checkForUpdates(forceDownload: boolean = false): Promise<void> {
+    // Guard set SYNCHRONOUSLY (before any await) so a second concurrent call --
+    // e.g. React StrictMode double-invoking the effect that calls this on mount,
+    // or a background check racing a manual retry click -- can never slip past
+    // the `downloadState === 'downloading'` check just because the first call
+    // hasn't reached its first `await` yet. Both callers instead await the same
+    // in-flight run. Without this, two concurrent startDownload() calls would
+    // interleave writes into the same dictionaryStaging/dictionary tables,
+    // corrupting the local dataset (observed: only ~5% of rows ended up synced).
+    if (this.inFlightCheck) return this.inFlightCheck
     if (this.status.downloadState === 'downloading' || this.status.downloadState === 'verifying') {
       return
     }
 
+    this.inFlightCheck = this.runCheckForUpdates(forceDownload).finally(() => {
+      this.inFlightCheck = null
+    })
+    return this.inFlightCheck
+  }
+
+  private async runCheckForUpdates(forceDownload: boolean): Promise<void> {
     this.updateStatus({ error: null })
 
     try {

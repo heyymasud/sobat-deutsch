@@ -127,4 +127,84 @@ describe('searchRouter (State A/B/C routing)', () => {
     )
     expect(supabase.functions.invoke).not.toHaveBeenCalled()
   })
+
+  it('concurrent indexLocalDictionary(true) calls only run one indexing pass (no interleaved removeAll/addAll corruption)', async () => {
+    const entries = [
+      { id: 1, lemma: 'Apfel', pos: 'noun', gender: 'm', plural: 'Äpfel', translations: 'apple', level: 'A1', frequency_rank: 100 },
+    ]
+    vi.mocked(db.dictionary.count).mockResolvedValue(1)
+    const offsetCalls: number[] = []
+    vi.mocked(db.dictionary.offset).mockImplementation((n: number) => {
+      offsetCalls.push(n)
+      return { limit: () => ({ toArray: vi.fn().mockResolvedValue(entries) }) } as any
+    })
+
+    // Fire two concurrent forced rebuilds, as would happen if a search-triggered
+    // rebuild and the syncManager subscription's rebuild race each other.
+    await Promise.all([indexLocalDictionary(true), indexLocalDictionary(true)])
+
+    // Only one pass should have actually read from Dexie -- a second concurrent
+    // force=true call must await the in-flight pass instead of starting its own.
+    expect(offsetCalls).toEqual([0])
+  })
+
+  it('local search ranks an exact/prefix match above a fuzzy-only match regardless of frequency_rank', async () => {
+    vi.stubGlobal('navigator', { onLine: false })
+
+    const entries = [
+      // Apferl (fuzzy match for "apfel", 1 edit away) deliberately given a
+      // BETTER frequency_rank than Apfel to prove prefix-tier wins outright,
+      // not just as a tie-breaker.
+      { id: 2, lemma: 'Apferl', pos: 'noun', gender: null, plural: null, translations: 'diminutive of Apfel', level: null, frequency_rank: 10 },
+      { id: 1, lemma: 'Apfel', pos: 'noun', gender: 'm', plural: 'Äpfel', translations: 'apple', level: 'A1', frequency_rank: 5228 },
+    ]
+    vi.mocked(db.dictionary.count).mockResolvedValue(entries.length)
+    vi.mocked(db.dictionary.offset).mockReturnValue({
+      limit: () => ({ toArray: vi.fn().mockResolvedValue(entries) }),
+    } as any)
+
+    await indexLocalDictionary(true)
+
+    vi.mocked(db.dictSyncMeta.toCollection().first).mockResolvedValue({
+      localVersion: 1,
+      downloadState: 'idle',
+      downloadProgress: 100,
+      lastCheckedAt: 0,
+    })
+
+    const results = await searchDictionary('apfel')
+
+    expect(results[0].lemma).toBe('Apfel')
+  })
+
+  it('does not fuzzy-match translations (e.g. "black" must not surface unrelated words via "back")', async () => {
+    vi.stubGlobal('navigator', { onLine: false })
+
+    const entries = [
+      { id: 1, lemma: 'schwarz', pos: 'adj', gender: null, plural: null, translations: 'black, reflecting little or no light', level: 'A1', frequency_rank: 200 },
+      // "back" is 1 edit away from "black" -- fuzzy on lemma is fine (German
+      // typo tolerance), but must NOT apply when matching via `translations`,
+      // otherwise every entry whose translation merely contains "back" (a very
+      // common English word) floods the results for a "black" query.
+      { id: 2, lemma: 'zurück', pos: 'adv', gender: null, plural: null, translations: 'back, backward, backwards', level: 'A1', frequency_rank: 50 },
+    ]
+    vi.mocked(db.dictionary.count).mockResolvedValue(entries.length)
+    vi.mocked(db.dictionary.offset).mockReturnValue({
+      limit: () => ({ toArray: vi.fn().mockResolvedValue(entries) }),
+    } as any)
+
+    await indexLocalDictionary(true)
+
+    vi.mocked(db.dictSyncMeta.toCollection().first).mockResolvedValue({
+      localVersion: 1,
+      downloadState: 'idle',
+      downloadProgress: 100,
+      lastCheckedAt: 0,
+    })
+
+    const results = await searchDictionary('black')
+
+    expect(results.map((r) => r.lemma)).toContain('schwarz')
+    expect(results.map((r) => r.lemma)).not.toContain('zurück')
+  })
 })

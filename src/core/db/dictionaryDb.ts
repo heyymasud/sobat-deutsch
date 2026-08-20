@@ -88,8 +88,20 @@ export class DictionaryDatabase extends Dexie {
       mistakeTracker: 'wordId, mistakeCount, lastMistakeAt'
     })
 
+    // mistakeTracker's primary key changed from `wordId` (v3) to `wordRef` (below) --
+    // Dexie can't rename a primary key in place, only delete-then-recreate the table.
+    // Drop the old wordId-keyed table here...
     this.version(4).stores({
       srsCards: '++id, deckId, wordRef, cardType, dueDate',
+      mistakeTracker: null
+    })
+
+    // ...and recreate it fresh under the new key. Any pre-4 mistake-tracking data
+    // is lost (acceptable: it's a non-critical recommendation heuristic, not user
+    // progress), but this at least lets the DB actually open instead of throwing
+    // "UpgradeError: Not yet support for changing primary key" for every browser
+    // that had reached version 3 before this fix.
+    this.version(4.1).stores({
       mistakeTracker: 'wordRef, mistakeCount, lastMistakeAt'
     })
 

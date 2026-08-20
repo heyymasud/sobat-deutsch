@@ -3,6 +3,7 @@ import { db } from '../../../core/db/dictionaryDb'
 import type { MistakeTrackerEntry } from '../../../core/db/dictionaryDb'
 import { generateCardsForWord } from '../../../core/srs/srsScheduler'
 import type { DictionaryEntry } from '../../dictionary/types'
+import { syncEngine } from '../../../core/sync/syncEngine'
 
 interface RecommendedWord extends MistakeTrackerEntry {
   word?: DictionaryEntry
@@ -255,6 +256,7 @@ export const ArtikelRush: React.FC = () => {
           addedCount++
         }
       })
+      syncEngine.triggerSync()
 
       alert(`Berhasil menambahkan ${addedCount} kata ke deck belajar!`)
       setShowAddModal(false)
@@ -297,6 +299,7 @@ export const ArtikelRush: React.FC = () => {
         }
         await db.mistakeTracker.update(wordToAddToDeck.lemma, { recommendedToDeck: true })
       })
+      syncEngine.triggerSync()
 
       alert('Berhasil ditambahkan ke deck belajar!')
       setShowAddModal(false)
