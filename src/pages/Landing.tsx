@@ -139,13 +139,24 @@ export default function Landing() {
             </motion.div>
           ))}
         </div>
-        <div className="mt-12 flex items-center gap-3 rounded-2xl border border-border p-4 w-fit">
-          <span className="grid h-11 w-11 place-items-center rounded-full bg-gender-m text-white"><Volume2 className="h-5 w-5" /></span>
+        <button
+          type="button"
+          onClick={() => {
+            if ('speechSynthesis' in window) {
+              window.speechSynthesis.cancel()
+              const utterance = new SpeechSynthesisUtterance('der Tisch')
+              utterance.lang = 'de-DE'
+              window.speechSynthesis.speak(utterance)
+            }
+          }}
+          className="mt-12 flex items-center gap-3 rounded-2xl border border-border p-4 w-fit text-left transition-colors hover:bg-surface-muted"
+        >
+          <span className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-gender-m text-white"><Volume2 className="h-5 w-5" /></span>
           <div>
             <p className="font-display text-lg font-bold">der Tisch</p>
-            <p className="text-xs text-ink-muted">meja · A1 · maskulin</p>
+            <p className="text-xs text-ink-muted">meja · maskulin</p>
           </div>
-        </div>
+        </button>
       </section>
 
       {/* CTA */}
@@ -153,7 +164,7 @@ export default function Landing() {
         <div className="relative overflow-hidden rounded-[2.5rem] bg-ink px-8 py-16 text-center text-canvas md:py-24">
           <div className="pointer-events-none absolute -left-10 top-0 h-40 w-40 rounded-full bg-gender-m/40 blur-3xl" />
           <div className="pointer-events-none absolute right-0 bottom-0 h-40 w-40 rounded-full bg-gender-f/40 blur-3xl" />
-          <h2 className="relative page-title text-canvas text-4xl md:text-6xl">Siap fasih tanpa salah artikel?</h2>
+          <h2 className="relative page-title !text-canvas text-4xl md:text-6xl">Siap fasih tanpa salah artikel?</h2>
           <p className="relative mx-auto mt-5 max-w-lg text-lg text-canvas/70">Mulai sebagai tamu — tanpa daftar. Progresmu tersimpan lokal, langsung bisa dipakai.</p>
           <Link to="/kamus" className="relative mt-9 inline-flex items-center gap-2 rounded-full bg-canvas px-8 py-4 text-base font-bold text-ink transition-transform hover:scale-[1.03]">
             Buka aplikasi <ArrowUpRight className="h-5 w-5" />

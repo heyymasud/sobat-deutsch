@@ -23,7 +23,7 @@ export default function Login() {
           <span className="font-display text-lg font-extrabold">Sobat Deutsch</span>
         </Link>
         <div className="relative">
-          <h2 className="page-title text-canvas text-5xl leading-tight">
+          <h2 className="page-title !text-canvas text-5xl leading-tight">
             Simpan <span className="text-gender-m">progres</span>, sinkron di <span className="text-gender-n">semua</span> perangkat.
           </h2>
           <p className="mt-6 max-w-sm text-canvas/70">Daftar hanya untuk sinkronisasi & keamanan data — fitur inti tetap gratis tanpa akun.</p>
