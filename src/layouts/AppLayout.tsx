@@ -59,13 +59,24 @@ export default function AppLayout() {
     }
   }
 
+  // Pull server data on every app start/re-login, not just the first login (S9-xx):
+  // otherwise a device that stays logged in across restarts never sees updates
+  // pushed from another device until the user manually logs out and back in.
+  // Push first so any not-yet-synced local queue items land on the server before
+  // the pull clears and rebuilds the local tables from it.
+  async function syncOnSessionStart(userId: string) {
+    await syncEngine.triggerSync()
+    await syncEngine.pullServerData()
+    syncEngine.subscribeToRemoteChanges(userId)
+    fetchUserRole(userId)
+  }
+
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
       setSession(data.session)
       setSessionLoaded(true)
       if (data.session) {
-        syncEngine.triggerSync()
-        fetchUserRole(data.session.user.id)
+        syncOnSessionStart(data.session.user.id)
       } else {
         setUserRole('student')
       }
@@ -74,14 +85,17 @@ export default function AppLayout() {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session)
       if (session) {
-        syncEngine.triggerSync()
-        fetchUserRole(session.user.id)
+        syncOnSessionStart(session.user.id)
       } else {
         setUserRole('student')
+        syncEngine.unsubscribeFromRemoteChanges()
       }
     })
 
-    return () => subscription.unsubscribe()
+    return () => {
+      subscription.unsubscribe()
+      syncEngine.unsubscribeFromRemoteChanges()
+    }
   }, [])
 
   const openAddToDeck = async (entry: DictionaryEntry) => {
