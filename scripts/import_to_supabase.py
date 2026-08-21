@@ -2,18 +2,30 @@ import sqlite3
 import psycopg2
 from psycopg2.extras import execute_values
 import sys
+import os
 import hashlib
 from pathlib import Path
 import json
 
 DB_SQLITE_PATH = Path(__file__).parent.parent / "data-pipeline" / "output" / "dictionary.sqlite"
 
-# Postgres connection details
-PG_HOST = "127.0.0.1"
-PG_PORT = 54322
-PG_USER = "postgres"
-PG_PASSWORD = "postgres"
-PG_DB = "postgres"
+# ponytail: no dotenv dep -- load .env.local by hand, real env vars still win.
+_env_path = Path(__file__).parent.parent / ".env.local"
+if _env_path.exists():
+    for line in _env_path.read_text(encoding="utf-8").splitlines():
+        line = line.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        key, _, value = line.partition("=")
+        os.environ.setdefault(key.strip(), value.strip())
+
+# Postgres connection details. Defaults target local Supabase CLI;
+# override via env vars (or .env.local) to import into a remote (production) project.
+PG_HOST = os.environ.get("PG_HOST", "127.0.0.1")
+PG_PORT = int(os.environ.get("PG_PORT", "54322"))
+PG_USER = os.environ.get("PG_USER", "postgres")
+PG_PASSWORD = os.environ.get("PG_PASSWORD", "postgres")
+PG_DB = os.environ.get("PG_DB", "postgres")
 
 def run():
     if not DB_SQLITE_PATH.exists():
