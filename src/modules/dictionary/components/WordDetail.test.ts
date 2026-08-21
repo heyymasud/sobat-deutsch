@@ -22,6 +22,9 @@ const makeEntry = (id: number, lemma: string): DictionaryEntry => ({
   level: 'A1',
   theme_tags: null,
   frequency_rank: null,
+  ipa: null,
+  etymology: null,
+  hyphenation: null,
 })
 
 describe('pickAblautSiblings (AC-GRAM-03)', () => {

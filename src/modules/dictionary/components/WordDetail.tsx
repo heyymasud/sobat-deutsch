@@ -5,6 +5,9 @@ import { MySuggestions } from '../../teacher/components/MySuggestions'
 import { ReportWordModal } from './ReportWordModal'
 import { db } from '../../../core/db/dictionaryDb'
 import { pickAblautSiblings } from './ablautSiblings'
+import { getGenderClue } from '../utils/genderClue'
+import { getFrequencyTierLabel } from '../utils/frequencyTier'
+import { GenderTipsModal } from './GenderTipsModal'
 import type { DictionaryEntry } from '../types'
 
 interface WordDetailProps {
@@ -18,6 +21,7 @@ export const WordDetail: React.FC<WordDetailProps> = ({ entry, onAddToDeck }) =>
   const [showMySuggestions, setShowMySuggestions] = useState(false)
   const [showReportModal, setShowReportModal] = useState(false)
   const [ablautSiblings, setAblautSiblings] = useState<DictionaryEntry[]>([])
+  const [showGenderTips, setShowGenderTips] = useState(false)
 
   const isNoun = entry.pos?.toLowerCase() === 'noun'
   const isVerb = entry.pos?.toLowerCase() === 'verb'
@@ -106,23 +110,8 @@ export const WordDetail: React.FC<WordDetailProps> = ({ entry, onAddToDeck }) =>
 
   const articles = getArticles(entry.gender)
 
-  // Suffix Gender Clues check
-  const getGenderClue = (lemma: string): { rule: string; type: 'm' | 'f' | 'n' } | null => {
-    const word = lemma.toLowerCase()
-    if (word.endsWith('ung') || word.endsWith('keit') || word.endsWith('heit') ||
-        word.endsWith('schaft') || word.endsWith('ion') || word.endsWith('tät')) {
-      return { rule: 'Akhiran -ung, -keit, -heit, -schaft, -ion, -tät selalu Feminin.', type: 'f' }
-    }
-    if (word.endsWith('chen') || word.endsWith('lein')) {
-      return { rule: 'Akhiran -chen dan -lein selalu Netral.', type: 'n' }
-    }
-    if (word.endsWith('ling') || word.endsWith('ismus') || (word.endsWith('er') && isNoun)) {
-      return { rule: 'Akhiran -er (pelaku), -ling, -ismus biasanya Maskulin.', type: 'm' }
-    }
-    return null
-  };
-
-  const genderClue = getGenderClue(entry.lemma)
+  // Suffix Gender Clues check (BR-QUIZ-07: shared rule, also used by ArtikelRush)
+  const genderClue = getGenderClue(entry.lemma, isNoun)
 
   // Table of 4 German cases (Deklinasi 4 Kasus - S5-07)
   const getDeclensionTable = () => {
@@ -202,13 +191,21 @@ export const WordDetail: React.FC<WordDetailProps> = ({ entry, onAddToDeck }) =>
           <div>
             <div className="flex gap-2 flex-wrap mb-3">
               {entry.pos && <span className="badge">{entry.pos.toUpperCase()}</span>}
-              {entry.level && <span className="badge badge-accent">{entry.level}</span>}
+              {getFrequencyTierLabel(entry.level) && (
+                <span className="badge badge-accent">{getFrequencyTierLabel(entry.level)}</span>
+              )}
             </div>
             <div className="flex items-center gap-3">
               <h1 className="page-title text-4xl md:text-5xl">
                 {articles && <span className={`text-gender-${entry.gender}`}>{articles.def} </span>}
                 {displayLemma}
               </h1>
+              {/* FR-DICT-18/BR-DICT-13: IPA shown next to TTS only when present */}
+              {entry.ipa && (
+                <span className="text-sm text-ink-faint font-mono" title="Transkripsi IPA">
+                  {entry.ipa}
+                </span>
+              )}
               <button
                 onClick={handlePlayAudio}
                 className="grid h-11 w-11 shrink-0 place-items-center rounded-full border border-border hover:bg-surface-muted text-ink-muted transition-colors"
@@ -295,11 +292,46 @@ export const WordDetail: React.FC<WordDetailProps> = ({ entry, onAddToDeck }) =>
         <div className="card p-6">
           <h2 className="eyebrow mb-4">Petunjuk Pola</h2>
           {isNoun && genderClue ? (
-            <p className="text-sm text-ink-muted leading-relaxed">{genderClue.rule}</p>
+            <>
+              <p className="text-sm text-ink-muted leading-relaxed">{genderClue.rule}</p>
+              <p className="text-xs text-ink-faint mt-1.5">
+                <span className="font-semibold">Contoh: </span>{genderClue.example}
+              </p>
+              {genderClue.caveat && (
+                <p className="text-xs text-ink-faint leading-relaxed mt-2">
+                  <span className="font-semibold">Catatan: </span>{genderClue.caveat}
+                </p>
+              )}
+            </>
           ) : (
             <p className="text-sm text-ink-faint italic">Tidak ada pola akhiran khusus yang cocok untuk kata ini.</p>
           )}
+
+          <button
+            onClick={() => setShowGenderTips(true)}
+            className="mt-4 text-xs text-brand hover:underline font-semibold"
+          >
+            Lihat semua pola akhiran →
+          </button>
+          {showGenderTips && <GenderTipsModal onClose={() => setShowGenderTips(false)} />}
         </div>
+
+        {/* FR-DICT-19/20, BR-DICT-13: whole card hidden if neither field exists */}
+        {(entry.etymology || entry.hyphenation) && (
+          <div className="card p-6 md:col-span-2">
+            <h2 className="eyebrow mb-4">Etimologi & Suku Kata</h2>
+            <div className="flex flex-col gap-2.5 text-sm">
+              {entry.hyphenation && (
+                <div className="text-ink-muted">
+                  Suku kata: <strong className="text-brand font-display">{entry.hyphenation}</strong>
+                </div>
+              )}
+              {entry.etymology && (
+                <p className="text-ink-muted leading-relaxed">{entry.etymology}</p>
+              )}
+            </div>
+          </div>
+        )}
 
         {/* Verb Specific Section (S5-05 & S5-06) */}
         {isVerb && (

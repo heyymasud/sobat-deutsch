@@ -4,6 +4,7 @@ import { db } from '../../../core/db/dictionaryDb'
 import { searchDictionary } from '../../../core/search/searchService'
 import { syncManager } from '../../../core/dictSync/syncManager'
 import type { SyncStatus } from '../../../core/dictSync/syncManager'
+import { getFrequencyTierLabel } from '../utils/frequencyTier'
 import type { DictionaryEntry } from '../types'
 
 interface SearchBarProps {
@@ -157,7 +158,9 @@ export const SearchBar: React.FC<SearchBarProps> = ({ onSelectEntry, layout = 'o
         </div>
         <div className="flex flex-col items-end gap-1 shrink-0">
           <span className="badge">{entry.pos}</span>
-          {entry.level && <span className="badge text-brand border-brand">{entry.level}</span>}
+          {getFrequencyTierLabel(entry.level ?? null) && (
+            <span className="badge text-brand border-brand">{getFrequencyTierLabel(entry.level ?? null)}</span>
+          )}
         </div>
       </li>
     )

@@ -1,11 +1,30 @@
 import React, { useState, useEffect, useRef } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
-import { Zap, Timer, Flame, RotateCcw, Check, X, Plus } from 'lucide-react'
+import { Zap, Timer, Flame, RotateCcw, Check, X, Plus, Lightbulb } from 'lucide-react'
 import { db } from '../../../core/db/dictionaryDb'
 import type { MistakeTrackerEntry } from '../../../core/db/dictionaryDb'
 import { generateCardsForWord } from '../../../core/srs/srsScheduler'
 import type { DictionaryEntry } from '../../dictionary/types'
 import { syncEngine } from '../../../core/sync/syncEngine'
+import { getGenderClue } from '../../dictionary/utils/genderClue'
+import { GenderTipsModal } from '../../dictionary/components/GenderTipsModal'
+
+// FR-QUIZ-12: bias word selection toward a user-picked difficulty tier.
+// Additive to the existing mistake-count weight (S5-02), not a replacement --
+// and always a WEIGHT (probability skew), never a hard filter, so a word pool
+// is never empty just because the current batch lacks that tier (EC-QUIZ-06).
+export type ArtikelRushDifficulty = 'easy' | 'normal' | 'hard'
+
+const TIER_WEIGHT_BY_DIFFICULTY: Record<ArtikelRushDifficulty, Record<string, number>> = {
+  easy: { A1: 6, A2: 3, B1: 1, none: 1 },
+  normal: { A1: 3, A2: 2, B1: 1, none: 1 },
+  hard: { A1: 1, A2: 1, B1: 3, none: 4 },
+}
+
+const frequencyTierWeight = (level: string | null, difficulty: ArtikelRushDifficulty): number => {
+  const table = TIER_WEIGHT_BY_DIFFICULTY[difficulty]
+  return table[level ?? 'none'] ?? 1
+}
 
 interface RecommendedWord extends MistakeTrackerEntry {
   word?: DictionaryEntry
@@ -13,6 +32,8 @@ interface RecommendedWord extends MistakeTrackerEntry {
 
 export const ArtikelRush: React.FC = () => {
   const [gameState, setGameState] = useState<'idle' | 'playing' | 'ended'>('idle')
+  const [difficulty, setDifficulty] = useState<ArtikelRushDifficulty>('normal')
+  const [showGenderTips, setShowGenderTips] = useState(false)
   const [currentWord, setCurrentWord] = useState<DictionaryEntry | null>(null)
   const [score, setScore] = useState(0)
   const [timeLeft, setTimeLeft] = useState(30)
@@ -127,11 +148,12 @@ export const ArtikelRush: React.FC = () => {
         return
       }
 
-      // Weighted word selection (S5-02):
+      // Weighted word selection (S5-02 mistake count x FR-QUIZ-12 frequency tier):
       const pool: DictionaryEntry[] = []
       for (const w of filtered) {
         const mistakeRecord = await db.mistakeTracker.get(w.lemma)
-        const weight = mistakeRecord ? 1 + mistakeRecord.mistakeCount : 1
+        const mistakeWeight = mistakeRecord ? 1 + mistakeRecord.mistakeCount : 1
+        const weight = mistakeWeight * frequencyTierWeight(w.level, difficulty)
         for (let idx = 0; idx < weight; idx++) {
           pool.push(w)
         }
@@ -202,9 +224,14 @@ export const ArtikelRush: React.FC = () => {
         console.error('Failed to update mistake tracker:', err)
       }
 
+      // Give the user enough time to actually read the gender-clue hint
+      // (FR-QUIZ-13) before the card auto-advances -- 1000ms was tuned for
+      // the plain "Salah! Jawaban: ..." line and disappeared before the hint
+      // below it could be read.
+      const hasHint = !!getGenderClue(currentWord.lemma, true)
       setTimeout(() => {
         fetchNextWord()
-      }, 1000)
+      }, hasHint ? 3400 : 1000)
     }
   }
 
@@ -378,15 +405,48 @@ export const ArtikelRush: React.FC = () => {
               <p className="text-ink-muted mb-6 max-w-sm mx-auto">
                 Tebak der / die / das secepat mungkin. Makin cepat & panjang streak, makin tinggi skor.
               </p>
-              <div className="flex items-center justify-center gap-6 text-sm text-ink-faint mb-8">
+              <div className="flex items-center justify-center gap-6 text-sm text-ink-faint mb-6">
                 <span className="flex items-center gap-2"><Timer className="h-4 w-4" /> 30 detik</span>
                 {highScore > 0 && (
                   <span className="flex items-center gap-2"><Flame className="h-4 w-4 text-gender-p" /> skor tertinggi: {highScore}</span>
                 )}
               </div>
+
+              {/* FR-QUIZ-12: user-picked difficulty, biases word selection (weight, not a hard filter) */}
+              <div className="flex items-center justify-center gap-1.5 mb-8" role="radiogroup" aria-label="Tingkat kesulitan">
+                {([
+                  { value: 'easy', label: 'Gampang' },
+                  { value: 'normal', label: 'Biasa' },
+                  { value: 'hard', label: 'Susah' },
+                ] as const).map((opt) => (
+                  <button
+                    key={opt.value}
+                    role="radio"
+                    aria-checked={difficulty === opt.value}
+                    onClick={() => setDifficulty(opt.value)}
+                    className={`rounded-full px-4 py-1.5 text-sm font-semibold transition-colors ${
+                      difficulty === opt.value ? 'bg-brand text-white' : 'bg-surface-muted text-ink-muted hover:text-ink'
+                    }`}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+
               <button onClick={handleStartGame} className="btn-primary !px-8 !py-3.5 text-base">Mulai Bermain</button>
+
+              <div className="mt-6">
+                <button
+                  onClick={() => setShowGenderTips(true)}
+                  className="inline-flex items-center gap-1.5 text-xs font-semibold text-brand hover:underline transition-colors bg-brand-soft px-3 py-1.5 rounded-full"
+                >
+                  <Lightbulb className="h-3.5 w-3.5" />
+                  Lihat semua tips pola gender
+                </button>
+              </div>
             </div>
           )}
+          {showGenderTips && <GenderTipsModal onClose={() => setShowGenderTips(false)} />}
 
           {gameState === 'playing' && currentWord && (
             <>
@@ -416,16 +476,25 @@ export const ArtikelRush: React.FC = () => {
               </AnimatePresence>
 
               {/* Status Indicator */}
-              <div className="h-6 mb-4">
+              <div className="mb-4">
                 {feedback === 'correct' && (
-                  <span className="flex items-center justify-center gap-1.5 font-display font-bold text-sm text-success">
+                  <span className="flex items-center justify-center gap-1.5 font-display font-bold text-sm text-success h-6">
                     <Check className="h-4 w-4" /> Benar (+10)
                   </span>
                 )}
                 {feedback === 'incorrect' && (
-                  <span className="flex items-center justify-center gap-1.5 font-display font-bold text-sm text-danger">
-                    <X className="h-4 w-4" /> Salah! Jawaban: {currentWord.gender === 'm' ? 'der' : currentWord.gender === 'f' ? 'die' : 'das'}
-                  </span>
+                  <>
+                    <span className="flex items-center justify-center gap-1.5 font-display font-bold text-sm text-danger h-6">
+                      <X className="h-4 w-4" /> Salah! Jawaban: {currentWord.gender === 'm' ? 'der' : currentWord.gender === 'f' ? 'die' : 'das'}
+                    </span>
+                    {/* FR-QUIZ-13/BR-QUIZ-07: reuse the same rule as WordDetail's
+                        "Petunjuk Pola" -- only shown when it actually matches. */}
+                    {getGenderClue(currentWord.lemma, true) && (
+                      <p className="text-xs text-ink-faint text-center mt-1">
+                        💡 {getGenderClue(currentWord.lemma, true)!.rule} (mis. {getGenderClue(currentWord.lemma, true)!.example})
+                      </p>
+                    )}
+                  </>
                 )}
               </div>
 
