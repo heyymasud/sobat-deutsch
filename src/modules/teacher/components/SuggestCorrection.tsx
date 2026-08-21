@@ -1,5 +1,6 @@
 import React, { useState } from 'react'
 import { supabase } from '../../../core/api/supabaseClient'
+import { Modal } from '../../../components/Modal'
 import type { DictionaryEntry } from '../../dictionary/types'
 
 interface SuggestCorrectionProps {
@@ -95,107 +96,105 @@ export const SuggestCorrection: React.FC<SuggestCorrectionProps> = ({ entry, onC
   };
 
   return (
-    <div className="bg-surface border rounded-2xl p-6 text-left max-w-lg w-full mx-auto my-4 shadow-lg">
-      <h2 className="text-xl font-bold text-ink mb-4">Ajukan Koreksi Kata</h2>
-      <p className="text-xs text-ink-faint mb-4">
-        Usulkan perubahan makna atau tata bahasa untuk kata <strong className="text-ink">"{entry.lemma}"</strong>.
-      </p>
+    <form onSubmit={handleSubmit}>
+      <Modal
+        title="Ajukan Koreksi Kata"
+        onClose={onClose}
+        maxWidthClassName="max-w-lg"
+        footer={
+          <div className="flex gap-2 justify-end text-xs">
+            <button type="button" onClick={onClose} className="btn-secondary !py-2 !px-4">
+              Batal
+            </button>
+            <button type="submit" disabled={loading} className="btn-primary !py-2 !px-4">
+              Ajukan Koreksi
+            </button>
+          </div>
+        }
+      >
+        <p className="text-xs text-ink-faint mb-4">
+          Usulkan perubahan makna atau tata bahasa untuk kata <strong className="text-ink">"{entry.lemma}"</strong>.
+        </p>
 
-      {errorMsg && (
-        <div className="bg-danger-soft text-danger p-3 rounded-xl border border-danger text-xs mb-4">
-          {errorMsg}
-        </div>
-      )}
-
-      {successMsg && (
-        <div className="bg-success-soft text-success p-3 rounded-xl border border-success text-xs mb-4">
-          {successMsg}
-        </div>
-      )}
-
-      <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-        <div>
-          <label className="block text-xs font-semibold text-ink-muted uppercase mb-1">Terjemahan</label>
-          <textarea
-            className="w-full field-input text-xs"
-            value={translations}
-            onChange={(e) => setTranslations(e.target.value)}
-            disabled={loading}
-            rows={2}
-            required
-          />
-        </div>
-
-        {isNoun && (
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-xs font-semibold text-ink-muted uppercase mb-1">Gender</label>
-              <select
-                className="w-full field-input text-xs"
-                value={gender}
-                onChange={(e) => setGender(e.target.value)}
-                disabled={loading}
-              >
-                <option value="">(Tanpa gender)</option>
-                <option value="m">der (maskulin)</option>
-                <option value="f">die (feminin)</option>
-                <option value="n">das (netral)</option>
-              </select>
-            </div>
-            <div>
-              <label className="block text-xs font-semibold text-ink-muted uppercase mb-1">Plural</label>
-              <input
-                type="text"
-                className="w-full field-input text-xs"
-                value={plural}
-                onChange={(e) => setPlural(e.target.value)}
-                disabled={loading}
-              />
-            </div>
+        {errorMsg && (
+          <div className="bg-danger-soft text-danger p-3 rounded-xl border border-danger text-xs mb-4">
+            {errorMsg}
           </div>
         )}
 
-        <div>
-          <label className="block text-xs font-semibold text-ink-muted uppercase mb-1">Kalimat Contoh</label>
-          <textarea
-            className="w-full field-input text-xs"
-            value={example}
-            onChange={(e) => setExample(e.target.value)}
-            disabled={loading}
-            rows={2}
-          />
-        </div>
+        {successMsg && (
+          <div className="bg-success-soft text-success p-3 rounded-xl border border-success text-xs mb-4">
+            {successMsg}
+          </div>
+        )}
 
-        <div>
-          <label className="block text-xs font-semibold text-ink-muted uppercase mb-1">Alasan Koreksi (Wajib)</label>
-          <textarea
-            className="w-full field-input text-xs"
-            value={reason}
-            onChange={(e) => setReason(e.target.value)}
-            placeholder="Tulis alasan atau referensi mengapa informasi kata ini salah..."
-            disabled={loading}
-            rows={3}
-            required
-          />
-        </div>
+        <div className="flex flex-col gap-4">
+          <div>
+            <label className="block text-xs font-semibold text-ink-muted uppercase mb-1">Terjemahan</label>
+            <textarea
+              className="w-full field-input text-xs"
+              value={translations}
+              onChange={(e) => setTranslations(e.target.value)}
+              disabled={loading}
+              rows={2}
+              required
+            />
+          </div>
 
-        <div className="flex gap-2 justify-end mt-2">
-          <button
-            type="button"
-            onClick={onClose}
-            className="px-4 py-2 border rounded-xl hover:bg-surface-muted text-ink-muted transition text-xs"
-          >
-            Batal
-          </button>
-          <button
-            type="submit"
-            disabled={loading}
-            className="btn-primary text-xs"
-          >
-            Ajukan Koreksi
-          </button>
+          {isNoun && (
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-xs font-semibold text-ink-muted uppercase mb-1">Gender</label>
+                <select
+                  className="w-full field-input text-xs"
+                  value={gender}
+                  onChange={(e) => setGender(e.target.value)}
+                  disabled={loading}
+                >
+                  <option value="">(Tanpa gender)</option>
+                  <option value="m">der (maskulin)</option>
+                  <option value="f">die (feminin)</option>
+                  <option value="n">das (netral)</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-ink-muted uppercase mb-1">Plural</label>
+                <input
+                  type="text"
+                  className="w-full field-input text-xs"
+                  value={plural}
+                  onChange={(e) => setPlural(e.target.value)}
+                  disabled={loading}
+                />
+              </div>
+            </div>
+          )}
+
+          <div>
+            <label className="block text-xs font-semibold text-ink-muted uppercase mb-1">Kalimat Contoh</label>
+            <textarea
+              className="w-full field-input text-xs"
+              value={example}
+              onChange={(e) => setExample(e.target.value)}
+              disabled={loading}
+              rows={2}
+            />
+          </div>
+
+          <div>
+            <label className="block text-xs font-semibold text-ink-muted uppercase mb-1">Alasan Koreksi (Wajib)</label>
+            <textarea
+              className="w-full field-input text-xs"
+              value={reason}
+              onChange={(e) => setReason(e.target.value)}
+              placeholder="Tulis alasan atau referensi mengapa informasi kata ini salah..."
+              disabled={loading}
+              rows={3}
+              required
+            />
+          </div>
         </div>
-      </form>
-    </div>
+      </Modal>
+    </form>
   )
 }

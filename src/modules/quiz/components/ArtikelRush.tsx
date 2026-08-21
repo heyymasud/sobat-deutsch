@@ -8,6 +8,7 @@ import type { DictionaryEntry } from '../../dictionary/types'
 import { syncEngine } from '../../../core/sync/syncEngine'
 import { getGenderClue } from '../../dictionary/utils/genderClue'
 import { GenderTipsModal } from '../../dictionary/components/GenderTipsModal'
+import { Modal } from '../../../components/Modal'
 
 // FR-QUIZ-12: bias word selection toward a user-picked difficulty tier.
 // Additive to the existing mistake-count weight (S5-02), not a replacement --
@@ -591,38 +592,14 @@ export const ArtikelRush: React.FC = () => {
 
       {/* Add To Deck Modal */}
       {showAddModal && (bulkAddMode || wordToAddToDeck) && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
-          <div className="card max-w-sm w-full p-6 text-left">
-            <h3 className="font-display text-lg font-bold text-ink mb-3">
-              {bulkAddMode ? 'Tambah Semua Rekomendasi' : 'Tambah Rekomendasi Kata'}
-            </h3>
-            <p className="text-sm text-ink-muted mb-4">
-              {bulkAddMode ? (
-                <>
-                  Pilih deck tujuan untuk mendaftarkan{' '}
-                  <strong className="text-ink">{recommendations.filter((r) => !r.recommendedToDeck).length} kata</strong>{' '}
-                  rekomendasi sekaligus.
-                </>
-              ) : (
-                <>
-                  Pilih deck tujuan untuk mendaftarkan kata{' '}
-                  <strong className="text-ink">"{wordToAddToDeck!.lemma}"</strong>.
-                </>
-              )}
-            </p>
-
-            {decks.length === 0 ? (
-              <div className="text-sm p-3 rounded-xl border mb-4 text-center text-warning bg-warning-soft border-warning">
-                Belum ada deck. Buka tab <strong>SRS</strong> untuk membuat deck terlebih dahulu.
-              </div>
-            ) : (
-              <select className="field-input mb-4 text-sm" value={selectedDeckId} onChange={(e) => setSelectedDeckId(e.target.value)}>
-                {decks.map((deck) => (
-                  <option key={deck.id} value={deck.id}>{deck.name}</option>
-                ))}
-              </select>
-            )}
-
+        <Modal
+          title={bulkAddMode ? 'Tambah Semua Rekomendasi' : 'Tambah Rekomendasi Kata'}
+          onClose={() => {
+            setShowAddModal(false)
+            setWordToAddToDeck(null)
+            setBulkAddMode(false)
+          }}
+          footer={
             <div className="flex gap-2 justify-end text-sm">
               <button
                 onClick={() => {
@@ -642,8 +619,35 @@ export const ArtikelRush: React.FC = () => {
                 Tambah
               </button>
             </div>
-          </div>
-        </div>
+          }
+        >
+          <p className="text-sm text-ink-muted mb-4">
+            {bulkAddMode ? (
+              <>
+                Pilih deck tujuan untuk mendaftarkan{' '}
+                <strong className="text-ink">{recommendations.filter((r) => !r.recommendedToDeck).length} kata</strong>{' '}
+                rekomendasi sekaligus.
+              </>
+            ) : (
+              <>
+                Pilih deck tujuan untuk mendaftarkan kata{' '}
+                <strong className="text-ink">"{wordToAddToDeck!.lemma}"</strong>.
+              </>
+            )}
+          </p>
+
+          {decks.length === 0 ? (
+            <div className="text-sm p-3 rounded-xl border text-center text-warning bg-warning-soft border-warning">
+              Belum ada deck. Buka tab <strong>SRS</strong> untuk membuat deck terlebih dahulu.
+            </div>
+          ) : (
+            <select className="field-input text-sm" value={selectedDeckId} onChange={(e) => setSelectedDeckId(e.target.value)}>
+              {decks.map((deck) => (
+                <option key={deck.id} value={deck.id}>{deck.name}</option>
+              ))}
+            </select>
+          )}
+        </Modal>
       )}
     </div>
   )

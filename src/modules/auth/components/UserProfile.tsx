@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import { supabase } from '../../../core/api/supabaseClient'
+import { Modal } from '../../../components/Modal'
 
 interface UserProfileProps {
   onLogout: () => void
@@ -12,14 +13,26 @@ export const UserProfile: React.FC<UserProfileProps> = ({ onLogout }) => {
   const [displayName, setDisplayName] = useState('')
   const [newPassword, setNewPassword] = useState('')
   const [oldPassword, setOldPassword] = useState('')
-  
+
   // Daily Limits preference states (S7-03)
   const [dailyNewLimit, setDailyNewLimit] = useState(20)
   const [dailyReviewLimit, setDailyReviewLimit] = useState(100)
 
-  const [loading, setLoading] = useState(false)
-  const [errorMsg, setErrorMsg] = useState('')
-  const [infoMsg, setInfoMsg] = useState('')
+  // Profile info and password are read-only by default; editing happens in a
+  // modal so visiting the page doesn't assume every visit is an edit visit.
+  const [showEditProfile, setShowEditProfile] = useState(false)
+  const [showChangePassword, setShowChangePassword] = useState(false)
+
+  // Each action keeps its own loading + message state so submitting one form
+  // never disables or reports status for an unrelated form on the page.
+  const [profileLoading, setProfileLoading] = useState(false)
+  const [profileMsg, setProfileMsg] = useState<{ type: 'error' | 'success'; text: string } | null>(null)
+  const [passwordLoading, setPasswordLoading] = useState(false)
+  const [passwordMsg, setPasswordMsg] = useState<{ type: 'error' | 'success'; text: string } | null>(null)
+  const [teacherLoading, setTeacherLoading] = useState(false)
+  const [teacherMsg, setTeacherMsg] = useState<{ type: 'error' | 'success'; text: string } | null>(null)
+  const [deleteLoading, setDeleteLoading] = useState(false)
+  const [deleteMsg, setDeleteMsg] = useState('')
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
@@ -74,9 +87,8 @@ export const UserProfile: React.FC<UserProfileProps> = ({ onLogout }) => {
 
   const handleUpdateProfile = async (e: React.FormEvent) => {
     e.preventDefault()
-    setErrorMsg('')
-    setInfoMsg('')
-    setLoading(true)
+    setProfileMsg(null)
+    setProfileLoading(true)
 
     try {
       // Save local preferences first
@@ -91,38 +103,41 @@ export const UserProfile: React.FC<UserProfileProps> = ({ onLogout }) => {
       // Also sync update in public.profiles table
       await supabase
         .from('profiles')
-        .update({ 
+        .update({
           display_name: displayName.trim(),
           daily_new_limit: dailyNewLimit,
           daily_review_limit: dailyReviewLimit
         })
         .eq('id', user.id)
 
-      setInfoMsg('Profil berhasil diperbarui!')
+      setProfileMsg({ type: 'success', text: 'Profil berhasil diperbarui!' })
       if (user) loadProfileAndApps(user.id)
+      setTimeout(() => {
+        setShowEditProfile(false)
+        setProfileMsg(null)
+      }, 1200)
     } catch (err: any) {
-      setErrorMsg(err.message || 'Gagal memperbarui profil.')
+      setProfileMsg({ type: 'error', text: err.message || 'Gagal memperbarui profil.' })
     } finally {
-      setLoading(false)
+      setProfileLoading(false)
     }
   };
 
   const handleUpdatePassword = async (e: React.FormEvent) => {
     e.preventDefault()
-    setErrorMsg('')
-    setInfoMsg('')
+    setPasswordMsg(null)
 
     if (newPassword.length < 8 || !/[A-Z]/.test(newPassword) || !/[a-z]/.test(newPassword) || !/\d/.test(newPassword)) {
-      setErrorMsg('Password baru harus minimal 8 karakter dan mengandung huruf besar, huruf kecil, serta angka.')
+      setPasswordMsg({ type: 'error', text: 'Password baru harus minimal 8 karakter dan mengandung huruf besar, huruf kecil, serta angka.' })
       return
     }
 
     if (!oldPassword) {
-      setErrorMsg('Masukkan password lama Anda untuk konfirmasi.')
+      setPasswordMsg({ type: 'error', text: 'Masukkan password lama Anda untuk konfirmasi.' })
       return
     }
 
-    setLoading(true)
+    setPasswordLoading(true)
     try {
       // AC-AUTH-11: reject the change unless the current password is verified
       // first. supabase.auth.updateUser() alone does not require re-auth
@@ -133,28 +148,31 @@ export const UserProfile: React.FC<UserProfileProps> = ({ onLogout }) => {
         password: oldPassword,
       })
       if (reauthError) {
-        setErrorMsg('Password lama salah.')
-        setLoading(false)
+        setPasswordMsg({ type: 'error', text: 'Password lama salah.' })
+        setPasswordLoading(false)
         return
       }
 
       const { error } = await supabase.auth.updateUser({ password: newPassword })
       if (error) throw error
-      setInfoMsg('Password berhasil diganti!')
+      setPasswordMsg({ type: 'success', text: 'Password berhasil diganti!' })
       setNewPassword('')
       setOldPassword('')
+      setTimeout(() => {
+        setShowChangePassword(false)
+        setPasswordMsg(null)
+      }, 1200)
     } catch (err: any) {
-      setErrorMsg(err.message || 'Gagal mengubah password.')
+      setPasswordMsg({ type: 'error', text: err.message || 'Gagal mengubah password.' })
     } finally {
-      setLoading(false)
+      setPasswordLoading(false)
     }
   };
 
   const handleApplyTeacher = async () => {
     if (!user) return
-    setErrorMsg('')
-    setInfoMsg('')
-    setLoading(true)
+    setTeacherMsg(null)
+    setTeacherLoading(true)
 
     try {
       const { error } = await supabase
@@ -165,12 +183,12 @@ export const UserProfile: React.FC<UserProfileProps> = ({ onLogout }) => {
         })
 
       if (error) throw error
-      setInfoMsg('Permohonan menjadi Pengajar berhasil diajukan!')
+      setTeacherMsg({ type: 'success', text: 'Permohonan menjadi Pengajar berhasil diajukan!' })
       loadProfileAndApps(user.id)
     } catch (err: any) {
-      setErrorMsg(err.message || 'Gagal mengajukan permohonan pengajar.')
+      setTeacherMsg({ type: 'error', text: err.message || 'Gagal mengajukan permohonan pengajar.' })
     } finally {
-      setLoading(false)
+      setTeacherLoading(false)
     }
   };
 
@@ -184,7 +202,8 @@ export const UserProfile: React.FC<UserProfileProps> = ({ onLogout }) => {
       return
     }
 
-    setLoading(true)
+    setDeleteMsg('')
+    setDeleteLoading(true)
     try {
       const { error } = await supabase.rpc('delete_user')
       if (error) {
@@ -194,37 +213,36 @@ export const UserProfile: React.FC<UserProfileProps> = ({ onLogout }) => {
       alert('Akun berhasil dihapus.')
       onLogout()
     } catch (err: any) {
-      setErrorMsg(err.message || 'Gagal menghapus akun.')
+      setDeleteMsg(err.message || 'Gagal menghapus akun.')
     } finally {
-      setLoading(false)
+      setDeleteLoading(false)
     }
   };
 
+  const initial = (displayName || user?.email || 'T')[0]?.toUpperCase() || 'T'
+  const roleLabel = (userProfile?.role || 'student').toUpperCase()
+  const roleBadgeClass =
+    userProfile?.role === 'admin'
+      ? 'badge-status-danger'
+      : userProfile?.role === 'teacher'
+        ? 'badge-status-brand'
+        : 'badge-status-neutral'
+
   return (
-    <div className="max-w-xl mx-auto text-left">
+    <div className="max-w-2xl mx-auto text-left">
       <h1 className="font-display text-2xl font-bold text-ink mb-6">Pengaturan Akun</h1>
 
-      {errorMsg && (
-        <div className="p-3 rounded-xl border mb-4 text-sm text-danger bg-danger-soft border-danger">
-          {errorMsg}
-        </div>
-      )}
-
-      {infoMsg && (
-        <div className="p-3 rounded-xl border mb-4 text-sm text-success bg-success-soft border-success">
-          {infoMsg}
-        </div>
-      )}
-
       <div className="flex flex-col gap-6">
-        {/* Role Display */}
-        <div className="card p-5">
-          <h3 className="text-sm font-semibold text-ink-faint uppercase mb-1">Peran Pengguna</h3>
-          <div className="flex items-center gap-3">
-            <span className="stat-figure text-brand text-lg">
-              {userProfile?.role || 'STUDENT'}
-            </span>
+        {/* Identity header */}
+        <div className="card p-5 flex items-center gap-4">
+          <span className="grid h-14 w-14 shrink-0 place-items-center rounded-full bg-brand text-xl font-bold text-white">
+            {initial}
+          </span>
+          <div className="min-w-0 flex-1">
+            <p className="font-display text-lg font-bold text-ink truncate">{displayName || 'Pengguna'}</p>
+            <p className="text-sm text-ink-muted truncate">{user?.email}</p>
           </div>
+          <span className={`badge-status ${roleBadgeClass} shrink-0`}>{roleLabel}</span>
         </div>
 
         {/* Teacher Application Section (S6-02) */}
@@ -234,6 +252,12 @@ export const UserProfile: React.FC<UserProfileProps> = ({ onLogout }) => {
             <p className="text-xs text-ink-muted mb-4">
               Menjadi pengajar memungkinkan Anda berkontribusi dengan merekomendasikan koreksi kosakata langsung ke database.
             </p>
+
+            {teacherMsg && (
+              <div className={`p-3 rounded-xl border mb-3 text-xs ${teacherMsg.type === 'error' ? 'text-danger bg-danger-soft border-danger' : 'text-success bg-success-soft border-success'}`}>
+                {teacherMsg.text}
+              </div>
+            )}
 
             {teacherApp?.status === 'pending' ? (
               <div className="p-3 rounded-xl border text-xs font-semibold text-warning bg-warning-soft border-warning">
@@ -246,8 +270,8 @@ export const UserProfile: React.FC<UserProfileProps> = ({ onLogout }) => {
                 </div>
                 <button
                   onClick={handleApplyTeacher}
-                  disabled={loading}
-                  className="btn-primary !py-2 !px-4 text-xs"
+                  disabled={teacherLoading}
+                  className="btn-primary !py-2 !px-4 text-xs self-start"
                 >
                   Ajukan Permohonan Baru
                 </button>
@@ -255,7 +279,7 @@ export const UserProfile: React.FC<UserProfileProps> = ({ onLogout }) => {
             ) : (
               <button
                 onClick={handleApplyTeacher}
-                disabled={loading}
+                disabled={teacherLoading}
                 className="btn-primary !py-2 !px-4 text-xs"
               >
                 Daftar Sebagai Pengajar
@@ -264,124 +288,208 @@ export const UserProfile: React.FC<UserProfileProps> = ({ onLogout }) => {
           </div>
         )}
 
-        {/* Profile Settings & Daily Limits (S7-03) */}
-        <form onSubmit={handleUpdateProfile} className="card p-5">
-          <h3 className="font-display text-lg font-bold text-ink mb-4">Ubah Profil & Target Belajar</h3>
-          <div className="mb-4">
-            <label className="block text-xs font-semibold text-ink-faint uppercase mb-1">Email</label>
-            <input
-              type="text"
-              disabled
-              className="field-input text-sm cursor-not-allowed opacity-60"
-              value={user?.email || ''}
-            />
+        {/* Profile Settings & Daily Limits (S7-03) — read-only summary; edited via modal */}
+        <div className="card p-5">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="font-display text-lg font-bold text-ink">Profil & Target Belajar</h3>
+            <button onClick={() => setShowEditProfile(true)} className="btn-secondary !py-1.5 !px-3.5 text-xs">
+              Edit
+            </button>
           </div>
-          <div className="mb-4">
-            <label className="block text-xs font-semibold text-ink-faint uppercase mb-1">Nama Tampilan</label>
-            <input
-              type="text"
-              className="field-input text-sm"
-              value={displayName}
-              onChange={(e) => setDisplayName(e.target.value)}
-              disabled={loading}
-            />
-          </div>
-
-          <div className="grid grid-cols-2 gap-4 mb-4">
-            <div>
-              <label className="block text-xs font-semibold text-ink-faint uppercase mb-1">Limit Kartu Baru / Hari</label>
-              <input
-                type="number"
-                className="field-input text-sm"
-                value={dailyNewLimit}
-                onChange={(e) => setDailyNewLimit(parseInt(e.target.value, 10))}
-                disabled={loading}
-                min={1}
-                required
-              />
+          <dl className="grid grid-cols-2 gap-x-4 gap-y-3 text-sm">
+            <div className="col-span-2">
+              <dt className="text-xs font-semibold text-ink-faint uppercase mb-0.5">Nama Tampilan</dt>
+              <dd className="text-ink">{displayName || 'Belum diatur'}</dd>
             </div>
             <div>
-              <label className="block text-xs font-semibold text-ink-faint uppercase mb-1">Limit Review Kartu / Hari</label>
-              <input
-                type="number"
-                className="field-input text-sm"
-                value={dailyReviewLimit}
-                onChange={(e) => setDailyReviewLimit(parseInt(e.target.value, 10))}
-                disabled={loading}
-                min={1}
-                required
-              />
+              <dt className="text-xs font-semibold text-ink-faint uppercase mb-0.5">Kartu Baru / Hari</dt>
+              <dd className="text-ink font-semibold">{dailyNewLimit}</dd>
             </div>
-          </div>
+            <div>
+              <dt className="text-xs font-semibold text-ink-faint uppercase mb-0.5">Review / Hari</dt>
+              <dd className="text-ink font-semibold">{dailyReviewLimit}</dd>
+            </div>
+          </dl>
+        </div>
 
-          <button
-            type="submit"
-            disabled={loading}
-            className="btn-primary !py-2 !px-4 text-sm"
-          >
-            Simpan Perubahan
-          </button>
-        </form>
-
-        {/* Change Password */}
-        <form onSubmit={handleUpdatePassword} className="card p-5">
-          <h3 className="font-display text-lg font-bold text-ink mb-4">Ganti Password</h3>
-          <div className="mb-4">
-            <label className="block text-xs font-semibold text-ink-faint uppercase mb-1">Password Lama</label>
-            <input
-              type="password"
-              className="field-input text-sm"
-              value={oldPassword}
-              onChange={(e) => setOldPassword(e.target.value)}
-              disabled={loading}
-            />
+        {/* Change Password — button only; form lives in a modal */}
+        <div className="card p-5 flex items-center justify-between gap-4">
+          <div className="min-w-0">
+            <h3 className="font-display text-lg font-bold text-ink">Password</h3>
+            <p className="text-xs text-ink-muted">Ganti password akun Anda.</p>
           </div>
-          <div className="mb-4">
-            <label className="block text-xs font-semibold text-ink-faint uppercase mb-1">Password Baru</label>
-            <input
-              type="password"
-              className="field-input text-sm"
-              value={newPassword}
-              onChange={(e) => setNewPassword(e.target.value)}
-              disabled={loading}
-            />
-          </div>
-          <button
-            type="submit"
-            disabled={loading}
-            className="btn-primary !py-2 !px-4 text-sm"
-          >
+          <button onClick={() => setShowChangePassword(true)} className="btn-secondary shrink-0 whitespace-nowrap">
             Ganti Password
           </button>
-        </form>
+        </div>
 
         {/* Account Actions */}
-        <div className="card p-5 flex flex-col sm:flex-row justify-between items-center gap-4">
-          <div>
+        <div className="card p-5 flex items-center justify-between gap-4">
+          <div className="min-w-0">
             <h3 className="font-display text-lg font-bold text-ink">Keluar Sesi</h3>
             <p className="text-xs text-ink-muted">Keluar dari perangkat ini.</p>
           </div>
           <button
             onClick={handleLogout}
-            className="btn-secondary w-full sm:w-auto"
+            className="btn-secondary shrink-0 whitespace-nowrap"
           >
             Log Out
           </button>
         </div>
 
-        <div className="p-5 rounded-xl border flex flex-col sm:flex-row justify-between items-center gap-4 border-danger bg-danger-soft">
-          <div>
-            <h3 className="font-display text-lg font-bold text-danger">Hapus Akun</h3>
-            <p className="text-xs text-danger">Semua data Anda akan dihapus secara permanen.</p>
+        <div className="flex flex-col gap-3">
+          <div className="p-5 rounded-2xl border flex items-center justify-between gap-4 border-danger bg-danger-soft">
+            <div className="min-w-0">
+              <h3 className="font-display text-lg font-bold text-danger">Hapus Akun</h3>
+              <p className="text-xs text-danger">Semua data Anda akan dihapus secara permanen.</p>
+            </div>
+            <button
+              onClick={handleDeleteAccount}
+              disabled={deleteLoading}
+              className="btn-danger shrink-0 whitespace-nowrap !py-2.5 !px-5 text-sm"
+            >
+              {deleteLoading ? 'Menghapus…' : 'Hapus Akun'}
+            </button>
           </div>
-          <button
-            onClick={handleDeleteAccount}
-            className="w-full sm:w-auto font-semibold px-5 py-2.5 rounded-full text-sm transition bg-danger text-white"
-          >
-            Hapus Akun
-          </button>
+          {deleteMsg && (
+            <div className="p-3 rounded-xl border text-sm text-danger bg-danger-soft border-danger">
+              {deleteMsg}
+            </div>
+          )}
         </div>
       </div>
+
+      {/* Edit Profile Modal */}
+      {showEditProfile && (
+        <form onSubmit={handleUpdateProfile}>
+          <Modal
+            title="Edit Profil & Target Belajar"
+            onClose={() => setShowEditProfile(false)}
+            footer={
+              <div className="flex gap-2 justify-end text-sm">
+                <button type="button" onClick={() => setShowEditProfile(false)} className="btn-secondary">
+                  Batal
+                </button>
+                <button type="submit" disabled={profileLoading} className="btn-primary">
+                  {profileLoading ? 'Menyimpan…' : 'Simpan Perubahan'}
+                </button>
+              </div>
+            }
+          >
+            {profileMsg && (
+              <div className={`p-3 rounded-xl border mb-4 text-sm ${profileMsg.type === 'error' ? 'text-danger bg-danger-soft border-danger' : 'text-success bg-success-soft border-success'}`}>
+                {profileMsg.text}
+              </div>
+            )}
+
+            <div className="mb-4">
+              <label htmlFor="profile-email" className="block text-xs font-semibold text-ink-faint uppercase mb-1">Email</label>
+              <input
+                id="profile-email"
+                type="text"
+                disabled
+                autoComplete="email"
+                className="field-input text-sm cursor-not-allowed opacity-60"
+                value={user?.email || ''}
+              />
+            </div>
+            <div className="mb-4">
+              <label htmlFor="profile-name" className="block text-xs font-semibold text-ink-faint uppercase mb-1">Nama Tampilan</label>
+              <input
+                id="profile-name"
+                type="text"
+                autoComplete="name"
+                className="field-input text-sm"
+                value={displayName}
+                onChange={(e) => setDisplayName(e.target.value)}
+                disabled={profileLoading}
+                autoFocus
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label htmlFor="daily-new-limit" className="block text-xs font-semibold text-ink-faint uppercase mb-1">Kartu Baru / Hari</label>
+                <input
+                  id="daily-new-limit"
+                  type="number"
+                  className="field-input text-sm"
+                  value={dailyNewLimit}
+                  onChange={(e) => setDailyNewLimit(parseInt(e.target.value, 10))}
+                  disabled={profileLoading}
+                  min={1}
+                  required
+                />
+              </div>
+              <div>
+                <label htmlFor="daily-review-limit" className="block text-xs font-semibold text-ink-faint uppercase mb-1">Review / Hari</label>
+                <input
+                  id="daily-review-limit"
+                  type="number"
+                  className="field-input text-sm"
+                  value={dailyReviewLimit}
+                  onChange={(e) => setDailyReviewLimit(parseInt(e.target.value, 10))}
+                  disabled={profileLoading}
+                  min={1}
+                  required
+                />
+              </div>
+            </div>
+          </Modal>
+        </form>
+      )}
+
+      {/* Change Password Modal */}
+      {showChangePassword && (
+        <form onSubmit={handleUpdatePassword}>
+          <Modal
+            title="Ganti Password"
+            onClose={() => setShowChangePassword(false)}
+            footer={
+              <div className="flex gap-2 justify-end text-sm">
+                <button type="button" onClick={() => setShowChangePassword(false)} className="btn-secondary">
+                  Batal
+                </button>
+                <button type="submit" disabled={passwordLoading} className="btn-primary">
+                  {passwordLoading ? 'Mengganti…' : 'Ganti Password'}
+                </button>
+              </div>
+            }
+          >
+            {passwordMsg && (
+              <div className={`p-3 rounded-xl border mb-4 text-sm ${passwordMsg.type === 'error' ? 'text-danger bg-danger-soft border-danger' : 'text-success bg-success-soft border-success'}`}>
+                {passwordMsg.text}
+              </div>
+            )}
+
+            <div className="mb-4">
+              <label htmlFor="old-password" className="block text-xs font-semibold text-ink-faint uppercase mb-1">Password Lama</label>
+              <input
+                id="old-password"
+                type="password"
+                autoComplete="current-password"
+                className="field-input text-sm"
+                value={oldPassword}
+                onChange={(e) => setOldPassword(e.target.value)}
+                disabled={passwordLoading}
+                autoFocus
+              />
+            </div>
+            <div>
+              <label htmlFor="new-password" className="block text-xs font-semibold text-ink-faint uppercase mb-1">Password Baru</label>
+              <input
+                id="new-password"
+                type="password"
+                autoComplete="new-password"
+                className="field-input text-sm"
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+                disabled={passwordLoading}
+              />
+            </div>
+          </Modal>
+        </form>
+      )}
     </div>
   )
 }

@@ -8,6 +8,7 @@ import { pickAblautSiblings } from './ablautSiblings'
 import { getGenderClue } from '../utils/genderClue'
 import { getFrequencyTierLabel } from '../utils/frequencyTier'
 import { GenderTipsModal } from './GenderTipsModal'
+import { Modal } from '../../../components/Modal'
 import type { DictionaryEntry } from '../types'
 
 interface WordDetailProps {
@@ -433,33 +434,14 @@ export const WordDetail: React.FC<WordDetailProps> = ({ entry, onAddToDeck }) =>
 
       {/* Suggest Correction Modal */}
       {showCorrectionModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
-          <div className="relative max-w-lg w-full">
-            <button
-              onClick={() => setShowCorrectionModal(false)}
-              className="absolute top-4 right-4 text-ink-faint hover:text-ink text-lg font-bold z-10"
-            >
-              ✕
-            </button>
-            <SuggestCorrection entry={entry} onClose={() => setShowCorrectionModal(false)} />
-          </div>
-        </div>
+        <SuggestCorrection entry={entry} onClose={() => setShowCorrectionModal(false)} />
       )}
 
       {/* My Suggestions History Modal (S6-06) */}
       {showMySuggestions && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
-          <div className="relative max-w-lg w-full max-h-[80vh] overflow-y-auto card p-6">
-            <button
-              onClick={() => setShowMySuggestions(false)}
-              className="absolute top-4 right-4 text-ink-faint hover:text-ink text-lg font-bold"
-            >
-              ✕
-            </button>
-            <h2 className="font-display text-xl font-bold text-ink mb-4">Saran Saya</h2>
-            <MySuggestions />
-          </div>
-        </div>
+        <Modal title="Saran Saya" onClose={() => setShowMySuggestions(false)} maxWidthClassName="max-w-lg">
+          <MySuggestions />
+        </Modal>
       )}
 
       {/* Report Word Modal (S6-10) */}

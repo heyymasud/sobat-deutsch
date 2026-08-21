@@ -222,6 +222,17 @@ button:disabled,
 }
 .btn-secondary:hover { background-color: var(--surface-muted); border-color: var(--ink-faint); }
 
+.btn-danger {
+  font-weight: 600;
+  color: #ffffff;
+  background-color: var(--danger);
+  border-radius: 999px;
+  padding: 0.7rem 1.4rem;
+  transition: background-color 0.15s ease;
+}
+.btn-danger:hover { background-color: color-mix(in srgb, var(--danger) 85%, black); }
+.btn-danger:disabled { background-color: var(--border); color: var(--ink-faint); }
+
 .field-input {
   width: 100%;
   background-color: var(--surface);
