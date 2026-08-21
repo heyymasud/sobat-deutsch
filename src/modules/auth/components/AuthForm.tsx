@@ -90,22 +90,6 @@ export const AuthForm: React.FC<AuthFormProps> = ({ onAuthSuccess }) => {
     }
   };
 
-  const handleGoogleLogin = async () => {
-    setErrorMsg('')
-    setInfoMsg('')
-    setLoading(true)
-    try {
-      const { error } = await supabase.auth.signInWithOAuth({
-        provider: 'google',
-        options: { redirectTo: window.location.origin },
-      })
-      if (error) throw error
-    } catch (err: any) {
-      setErrorMsg(err.message || 'Gagal masuk dengan Google.')
-      setLoading(false)
-    }
-  };
-
   const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault()
     setErrorMsg('')
@@ -230,11 +214,7 @@ export const AuthForm: React.FC<AuthFormProps> = ({ onAuthSuccess }) => {
         </button>
       </form>
 
-      {view === 'login' && (
-        <button type="button" onClick={handleGoogleLogin} disabled={loading} className="btn-secondary w-full mt-3 py-3.5 text-sm flex items-center justify-center gap-2">
-          Masuk dengan Google
-        </button>
-      )}
+      {/* ponytail: Google OAuth belum dikonfigurasi di Supabase dashboard, sembunyikan sampai disetup */}
 
       {/* Switch View Controls */}
       <div className="mt-6 pt-4 border-t border-border flex flex-col items-center gap-2 text-xs text-ink-muted">
