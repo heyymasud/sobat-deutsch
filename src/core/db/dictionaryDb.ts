@@ -44,7 +44,7 @@ export interface ReviewLog {
 export interface SyncQueueItem {
   id?: number
   action: 'insert' | 'update' | 'delete'
-  entityTable: 'decks' | 'srsCards' | 'reviewLogs'
+  entityTable: 'decks' | 'srsCards' | 'reviewLogs' | 'mistakeTracker'
   entityData: any
   queuedAt: number
 }

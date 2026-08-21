@@ -208,19 +208,22 @@ export const ArtikelRush: React.FC = () => {
       handlePlayAudio(currentWord.lemma, currentWord.gender)
       try {
         const existing = await db.mistakeTracker.get(currentWord.lemma)
+        const updated = existing
+          ? { ...existing, mistakeCount: existing.mistakeCount + 1, lastMistakeAt: Date.now() }
+          : { wordRef: currentWord.lemma, mistakeCount: 1, recommendedToDeck: false, lastMistakeAt: Date.now() }
+
         if (existing) {
-          await db.mistakeTracker.update(currentWord.lemma, {
-            mistakeCount: existing.mistakeCount + 1,
-            lastMistakeAt: Date.now(),
-          })
+          await db.mistakeTracker.update(currentWord.lemma, updated)
         } else {
-          await db.mistakeTracker.add({
-            wordRef: currentWord.lemma,
-            mistakeCount: 1,
-            recommendedToDeck: false,
-            lastMistakeAt: Date.now(),
-          })
+          await db.mistakeTracker.add(updated)
         }
+        await db.syncQueue.add({
+          action: 'update',
+          entityTable: 'mistakeTracker',
+          entityData: updated,
+          queuedAt: Date.now(),
+        })
+        syncEngine.triggerSync()
       } catch (err) {
         console.error('Failed to update mistake tracker:', err)
       }
@@ -283,6 +286,15 @@ export const ArtikelRush: React.FC = () => {
             })
           }
           await db.mistakeTracker.update(word.lemma, { recommendedToDeck: true })
+          const updatedMistake = await db.mistakeTracker.get(word.lemma)
+          if (updatedMistake) {
+            await db.syncQueue.add({
+              action: 'update',
+              entityTable: 'mistakeTracker',
+              entityData: updatedMistake,
+              queuedAt: Date.now(),
+            })
+          }
           addedCount++
         }
       })
@@ -328,6 +340,15 @@ export const ArtikelRush: React.FC = () => {
           })
         }
         await db.mistakeTracker.update(wordToAddToDeck.lemma, { recommendedToDeck: true })
+        const updatedMistake = await db.mistakeTracker.get(wordToAddToDeck.lemma)
+        if (updatedMistake) {
+          await db.syncQueue.add({
+            action: 'update',
+            entityTable: 'mistakeTracker',
+            entityData: updatedMistake,
+            queuedAt: Date.now(),
+          })
+        }
       })
       syncEngine.triggerSync()
 

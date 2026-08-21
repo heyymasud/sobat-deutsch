@@ -1,5 +1,8 @@
+import type { RealtimeChannel } from '@supabase/supabase-js'
 import { db } from '../db/dictionaryDb'
 import { supabase } from '../api/supabaseClient'
+
+const REMOTE_TABLES = ['decks', 'srs_cards', 'review_logs', 'mistake_tracker'] as const
 
 // Local numeric rating (1-4, see ReviewSession keyboard shortcuts) -> server text rating (BR-SYNC-03 schema check).
 const RATING_LABELS = ['lupa', 'sulit', 'sedang', 'mudah'] as const
@@ -23,6 +26,9 @@ class DictionarySyncEngine {
   // db.syncQueue.count() on every change — cheap and avoids a query per card rating.
   private pendingCount = 0
   private status: SyncEngineStatus = { state: 'idle', pendingCount: 0, error: null }
+  private realtimeChannel: RealtimeChannel | null = null
+  private pullDebounceTimer: ReturnType<typeof setTimeout> | null = null
+  private lastLocalPushAt = 0
 
   constructor() {
     window.addEventListener('online', () => this.handleNetworkChange(true))
@@ -50,6 +56,53 @@ class DictionarySyncEngine {
     return () => {
       this.listeners.delete(listener)
     }
+  }
+
+  /**
+   * Listen for changes made by this user's OTHER devices and pull them in live,
+   * instead of only syncing on next app reload/login. Realtime is already part
+   * of the installed supabase-js client — no new dependency needed.
+   */
+  public subscribeToRemoteChanges(userId: string): void {
+    this.unsubscribeFromRemoteChanges()
+
+    let channel = supabase.channel(`sync-${userId}`)
+    for (const table of REMOTE_TABLES) {
+      channel = channel.on(
+        'postgres_changes' as any,
+        { event: '*', schema: 'public', table, filter: `user_id=eq.${userId}` },
+        () => this.scheduleDebouncedPull()
+      )
+    }
+    channel.subscribe()
+    this.realtimeChannel = channel
+  }
+
+  public unsubscribeFromRemoteChanges(): void {
+    if (this.realtimeChannel) {
+      supabase.removeChannel(this.realtimeChannel)
+      this.realtimeChannel = null
+    }
+    if (this.pullDebounceTimer) {
+      clearTimeout(this.pullDebounceTimer)
+      this.pullDebounceTimer = null
+    }
+  }
+
+  // Realtime events for one write often arrive as a burst (e.g. deck insert +
+  // its first card insert) -- debounce so a burst triggers one rebuild, not N.
+  private scheduleDebouncedPull(): void {
+    if (this.pullDebounceTimer) clearTimeout(this.pullDebounceTimer)
+    this.pullDebounceTimer = setTimeout(() => {
+      this.pullDebounceTimer = null
+      // ponytail: our own triggerSync() writes echo back through Realtime too
+      // (filter is per-user, not per-device). Skip the rebuild if we just pushed
+      // ourselves -- state is already correct locally. A genuine change from
+      // another device landing in this same window waits for the next pull
+      // (session start, 'online', or the next Realtime event outside the window).
+      if (Date.now() - this.lastLocalPushAt < 2000) return
+      this.pullServerData()
+    }, 800)
   }
 
   private updateStatus(patch: Partial<SyncEngineStatus>) {
@@ -80,7 +133,8 @@ class DictionarySyncEngine {
       const reviewLogs = await db.reviewLogs.toArray()
 
       if (decks.length === 0) {
-        console.log('No guest data to migrate.')
+        console.log('No guest data to migrate, pulling existing server data instead.')
+        await this.pullServerData()
         return
       }
 
@@ -114,6 +168,16 @@ class DictionarySyncEngine {
     const { data: { session } } = await supabase.auth.getSession()
     if (!session) return
 
+    // Never clear+rebuild local tables while a push is still owed to the server:
+    // pullServerData reassigns local IDs, so any syncQueue item still pointing at
+    // an old ID would look "gone locally" on the next triggerSync and get dropped
+    // silently instead of retried -- losing data that never made it to the server.
+    const pendingCount = await db.syncQueue.count()
+    if (pendingCount > 0) {
+      console.warn(`Skipping pullServerData: ${pendingCount} unsynced local change(s) still queued.`)
+      return
+    }
+
     console.log('Pulling database from server...')
 
     try {
@@ -131,12 +195,29 @@ class DictionarySyncEngine {
 
       if (cardsErr) throw cardsErr
 
+      // 3. Pull review logs
+      const { data: remoteLogs, error: logsErr } = await supabase
+        .from('review_logs')
+        .select('*')
+
+      if (logsErr) throw logsErr
+
+      // 4. Pull mistake tracker
+      const { data: remoteMistakes, error: mistakesErr } = await supabase
+        .from('mistake_tracker')
+        .select('*')
+
+      if (mistakesErr) throw mistakesErr
+
       // Write to local IndexedDB
-      await db.transaction('rw', [db.decks, db.srsCards], async () => {
+      await db.transaction('rw', [db.decks, db.srsCards, db.reviewLogs, db.mistakeTracker], async () => {
         await db.decks.clear()
         await db.srsCards.clear()
+        await db.reviewLogs.clear()
+        await db.mistakeTracker.clear()
 
         const deckUuidToLocalId: Record<string, number> = {}
+        const cardUuidToLocalId: Record<string, number> = {}
 
         for (const d of remoteDecks || []) {
           const localId = await db.decks.add({
@@ -150,7 +231,7 @@ class DictionarySyncEngine {
           const localDeckId = deckUuidToLocalId[c.deck_id]
           if (!localDeckId) continue
 
-          await db.srsCards.add({
+          const localCardId = await db.srsCards.add({
             deckId: localDeckId,
             wordRef: c.word_ref,
             cardType: c.card_type as any,
@@ -161,10 +242,34 @@ class DictionarySyncEngine {
             createdAt: new Date(c.created_at).getTime(),
             updatedAt: new Date(c.updated_at).getTime()
           })
+          cardUuidToLocalId[c.id] = localCardId
+        }
+
+        for (const l of remoteLogs || []) {
+          const localCardId = cardUuidToLocalId[l.card_id]
+          if (!localCardId) continue
+
+          const ratingNum = RATING_LABELS.indexOf(l.rating) + 1
+          await db.reviewLogs.add({
+            cardId: localCardId,
+            rating: ratingNum > 0 ? ratingNum : 1,
+            easeFactor: 0, // not tracked server-side, only used for the local push payload
+            interval: l.interval_after,
+            reviewedAt: new Date(l.reviewed_at).getTime()
+          })
+        }
+
+        for (const m of remoteMistakes || []) {
+          await db.mistakeTracker.add({
+            wordRef: m.word_ref,
+            mistakeCount: m.mistake_count,
+            recommendedToDeck: m.recommended_to_deck,
+            lastMistakeAt: new Date(m.last_mistake_at).getTime()
+          })
         }
       })
 
-      console.log('Decks and cards successfully synchronized from server.')
+      console.log('Decks, cards, review logs and mistakes successfully synchronized from server.')
     } catch (err) {
       console.error('Failed to pull server data:', err)
     }
@@ -229,6 +334,7 @@ class DictionarySyncEngine {
       lastError = err instanceof Error ? err.message : 'Sync gagal'
     } finally {
       this.isSyncing = false
+      this.lastLocalPushAt = Date.now()
       this.updateStatus({
         state: failedCount > 0 ? 'error' : 'synced',
         pendingCount: this.pendingCount,
@@ -305,6 +411,22 @@ class DictionarySyncEngine {
 
       if (item.entityTable === 'reviewLogs' && item.action === 'insert') {
         return await this.pushReviewLogInsert(item, userId)
+      }
+
+      if (item.entityTable === 'mistakeTracker') {
+        const { error } = await supabase.from('mistake_tracker').upsert({
+          user_id: userId,
+          word_ref: item.entityData.wordRef,
+          mistake_count: item.entityData.mistakeCount,
+          last_mistake_at: new Date(item.entityData.lastMistakeAt).toISOString(),
+          recommended_to_deck: item.entityData.recommendedToDeck
+        }, { onConflict: 'user_id,word_ref' })
+
+        if (error) {
+          console.error('Error syncing mistake tracker:', error)
+          return false
+        }
+        return true
       }
 
       // Unknown/unsupported combination — leave queued rather than silently dropping it.
