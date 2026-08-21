@@ -10,6 +10,10 @@
 data-pipeline/raw/
 data-pipeline/output/
 
+# Python bytecode cache -- compiled artifacts, never source.
+__pycache__/
+*.pyc
+
 # Node / frontend (disiapkan untuk scaffold berikutnya)
 node_modules/
 dist/
