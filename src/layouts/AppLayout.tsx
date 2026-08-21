@@ -175,9 +175,12 @@ export default function AppLayout() {
         </nav>
 
         <div className="mt-4 flex flex-col gap-3">
-          <div className="flex flex-col gap-1.5">
+          <div className="flex flex-col gap-2.5 rounded-2xl border border-border bg-surface p-3 shadow-sm">
             <SyncIndicator />
-            <SrsSyncIndicator />
+            <div className="relative pt-2.5">
+              <div className="absolute inset-x-0 top-0 border-t border-border" style={{ marginLeft: 42 }} />
+              <SrsSyncIndicator />
+            </div>
           </div>
           <div className="flex items-center justify-between rounded-2xl border border-border p-3">
             <button
