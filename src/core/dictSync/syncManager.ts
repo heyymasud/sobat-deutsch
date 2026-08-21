@@ -141,6 +141,34 @@ class DictionarySyncManager {
     }
   }
 
+  // Fetch + JSON.parse the dictionary file in a Web Worker, off the main
+  // thread — inline JSON.parse of the ~20-30MB file blocked the UI (search
+  // input, typing) during the first-time sync (FR-DICT-02c requires this not
+  // to block app usage).
+  private fetchAndParseInWorker(url: string): Promise<DictionaryEntry[]> {
+    return new Promise((resolve, reject) => {
+      const worker = new Worker(new URL('./downloadWorker.ts', import.meta.url), { type: 'module' })
+
+      worker.onmessage = (e: MessageEvent<{ type: string; progress?: number; entries?: DictionaryEntry[]; message?: string }>) => {
+        const msg = e.data
+        if (msg.type === 'progress') {
+          this.updateStatus({ downloadProgress: msg.progress! })
+        } else if (msg.type === 'done') {
+          resolve(msg.entries!)
+          worker.terminate()
+        } else if (msg.type === 'error') {
+          reject(new Error(msg.message))
+          worker.terminate()
+        }
+      }
+      worker.onerror = (err) => {
+        reject(new Error(err.message || 'Worker error saat mengunduh kamus.'))
+        worker.terminate()
+      }
+      worker.postMessage({ url })
+    })
+  }
+
   private async startDownload(version: number, expectedRows: number, _expectedChecksum: string) {
     this.updateStatus({ downloadState: 'downloading', downloadProgress: 0 })
 
@@ -154,33 +182,10 @@ class DictionarySyncManager {
         throw new Error('Gagal mendapatkan URL unduhan dictionary')
       }
 
-      // Download file with progress monitoring using XMLHttpRequest
-      const xhr = new XMLHttpRequest()
-      xhr.open('GET', urlData.publicUrl, true)
-      
-      xhr.onprogress = (event) => {
-        if (event.lengthComputable) {
-          const progress = Math.round((event.loaded / event.total) * 100)
-          this.updateStatus({ downloadProgress: progress })
-        }
-      }
-
-      const fileData = await new Promise<string>((resolve, reject) => {
-        xhr.onload = () => {
-          if (xhr.status === 200) {
-            resolve(xhr.responseText)
-          } else {
-            reject(new Error(`Gagal mengunduh file: HTTP ${xhr.status}`))
-          }
-        }
-        xhr.onerror = () => reject(new Error('Koneksi jaringan error saat mengunduh.'))
-        xhr.send()
-      })
+      const entries = await this.fetchAndParseInWorker(urlData.publicUrl)
 
       this.updateStatus({ downloadState: 'verifying' })
 
-      // Verify and Parse JSON
-      const entries: DictionaryEntry[] = JSON.parse(fileData)
       if (!Array.isArray(entries)) {
         throw new Error('Format file unduhan tidak valid')
       }
@@ -202,11 +207,18 @@ class DictionarySyncManager {
         this.updateStatus({ downloadProgress: progress })
       }
 
-      // Atomic Swap
+      // Atomic Swap — deliberately scoped to [dictionary, dictionaryStaging]
+      // ONLY, not dictSyncMeta. IndexedDB locks a table for the full duration
+      // of any transaction that touches it, so including dictSyncMeta here
+      // (a ~110k-row copy across 22 batches) blocked every searchDictionary()
+      // call for the whole swap -- search reads dictSyncMeta as its first
+      // line to decide online-vs-local routing, so it froze until the swap
+      // finished. dictSyncMeta is updated in its own fast transaction right
+      // after instead, so search stays responsive throughout.
       console.log('Committing atomic swap...')
-      await db.transaction('rw', [db.dictionary, db.dictionaryStaging, db.dictSyncMeta], async () => {
+      await db.transaction('rw', [db.dictionary, db.dictionaryStaging], async () => {
         await db.dictionary.clear()
-        
+
         // Copy in batches
         const count = await db.dictionaryStaging.count()
         let offset = 0
@@ -218,18 +230,18 @@ class DictionarySyncManager {
         }
 
         await db.dictionaryStaging.clear()
-        
-        // Update local version meta
-        const meta = await db.dictSyncMeta.toCollection().first()
-        if (meta && meta.id) {
-          await db.dictSyncMeta.update(meta.id, {
-            localVersion: version,
-            downloadState: 'idle',
-            downloadProgress: 100,
-            lastCheckedAt: Date.now(),
-          })
-        }
       })
+
+      // Update local version meta (separate, fast transaction -- see comment above)
+      const meta = await db.dictSyncMeta.toCollection().first()
+      if (meta && meta.id) {
+        await db.dictSyncMeta.update(meta.id, {
+          localVersion: version,
+          downloadState: 'idle',
+          downloadProgress: 100,
+          lastCheckedAt: Date.now(),
+        })
+      }
 
       this.updateStatus({
         localVersion: version,

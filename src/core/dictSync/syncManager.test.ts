@@ -57,6 +57,40 @@ class MockXHR {
   }
 }
 
+// Mirrors downloadWorker.ts's onmessage handler, but runs inline (no real
+// Worker in jsdom) reusing the same MockXHR so existing test setup still
+// drives it via MockXHR.nextResponseText/status.
+class MockWorker {
+  onmessage: ((e: { data: any }) => void) | null = null
+  onerror: ((e: any) => void) | null = null
+  postMessage(msg: { url: string }) {
+    const xhr = new (globalThis as any).XMLHttpRequest()
+    xhr.open('GET', msg.url, true)
+    xhr.onprogress = (e: any) => {
+      if (e.lengthComputable) {
+        this.onmessage?.({ data: { type: 'progress', progress: Math.round((e.loaded / e.total) * 100) } })
+      }
+    }
+    xhr.onload = () => {
+      if (xhr.status !== 200) {
+        this.onmessage?.({ data: { type: 'error', message: `Gagal mengunduh file: HTTP ${xhr.status}` } })
+        return
+      }
+      try {
+        const entries = JSON.parse(xhr.responseText)
+        this.onmessage?.({ data: { type: 'done', entries } })
+      } catch {
+        this.onmessage?.({ data: { type: 'error', message: 'Format file unduhan tidak valid' } })
+      }
+    }
+    xhr.onerror = () => {
+      this.onmessage?.({ data: { type: 'error', message: 'Koneksi jaringan error saat mengunduh.' } })
+    }
+    xhr.send()
+  }
+  terminate() {}
+}
+
 describe('DictionarySyncManager', () => {
   beforeEach(() => {
     vi.resetAllMocks()
@@ -64,6 +98,7 @@ describe('DictionarySyncManager', () => {
     MockXHR.instances = []
     MockXHR.nextResponseText = ''
     vi.stubGlobal('XMLHttpRequest', MockXHR as any)
+    vi.stubGlobal('Worker', MockWorker as any)
   })
 
   afterEach(() => {
