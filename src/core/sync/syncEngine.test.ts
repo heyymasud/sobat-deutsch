@@ -50,20 +50,20 @@ describe('syncEngine.triggerSync', () => {
       id: 1,
       action: 'insert' as const,
       entityTable: 'decks' as const,
-      entityData: { id: 42, name: 'Verben' },
+      entityData: { id: 42, serverId: 'client-deck-uuid', name: 'Verben' },
       queuedAt: 1,
     }
     ;(db.syncQueue.orderBy as any).mockReturnValue({ toArray: vi.fn().mockResolvedValue([queueItem]) })
 
-    const single = vi.fn().mockResolvedValue({ data: { id: 'server-deck-uuid' }, error: null })
-    const select = vi.fn(() => ({ single }))
-    const insert = vi.fn(() => ({ select }))
-    ;(supabase.from as any).mockReturnValue({ insert })
+    const upsert = vi.fn().mockResolvedValue({ data: null, error: null })
+    ;(supabase.from as any).mockReturnValue({ upsert })
 
     await syncEngine.triggerSync()
 
-    expect(insert).toHaveBeenCalledWith({ name: 'Verben', user_id: 'user-1' })
-    expect(db.decks.update).toHaveBeenCalledWith(42, { serverId: 'server-deck-uuid' })
+    expect(upsert).toHaveBeenCalledWith(
+      { id: 'client-deck-uuid', name: 'Verben', user_id: 'user-1' },
+      { onConflict: 'id' }
+    )
     expect(db.syncQueue.delete).toHaveBeenCalledWith(1)
   })
 
@@ -74,19 +74,16 @@ describe('syncEngine.triggerSync', () => {
       id: 2,
       action: 'insert' as const,
       entityTable: 'decks' as const,
-      entityData: { id: 43, name: 'Substantive' },
+      entityData: { id: 43, serverId: 'client-deck-uuid-2', name: 'Substantive' },
       queuedAt: 1,
     }
     ;(db.syncQueue.orderBy as any).mockReturnValue({ toArray: vi.fn().mockResolvedValue([queueItem]) })
 
-    const single = vi.fn().mockResolvedValue({ data: null, error: new Error('network down') })
-    const select = vi.fn(() => ({ single }))
-    const insert = vi.fn(() => ({ select }))
-    ;(supabase.from as any).mockReturnValue({ insert })
+    const upsert = vi.fn().mockResolvedValue({ data: null, error: new Error('network down') })
+    ;(supabase.from as any).mockReturnValue({ upsert })
 
     await syncEngine.triggerSync()
 
-    expect(db.decks.update).not.toHaveBeenCalled()
     expect(db.syncQueue.delete).not.toHaveBeenCalled()
   })
 
@@ -218,21 +215,19 @@ describe('syncEngine.triggerSync', () => {
       id: 20,
       action: 'insert' as const,
       entityTable: 'decks' as const,
-      entityData: { id: 99, name: 'Verben' },
+      entityData: { id: 99, serverId: 'client-deck-uuid', name: 'Verben' },
       queuedAt: 1,
     }
     ;(db.syncQueue.orderBy as any).mockReturnValue({ toArray: vi.fn().mockResolvedValue([queueItem]) })
 
-    const single = vi.fn().mockResolvedValue({ data: { id: 'server-deck-uuid' }, error: null })
-    const select = vi.fn(() => ({ single }))
-    const insert = vi.fn(() => ({ select }))
-    ;(supabase.from as any).mockReturnValue({ insert })
+    const upsert = vi.fn().mockResolvedValue({ data: null, error: null })
+    ;(supabase.from as any).mockReturnValue({ upsert })
 
     await Promise.all([syncEngine.triggerSync(), syncEngine.triggerSync()])
 
-    // Only one push should have actually run -- one insert call, not two
+    // Only one push should have actually run -- one upsert call, not two
     // interleaved pushes of the same item.
-    expect(insert).toHaveBeenCalledTimes(1)
+    expect(upsert).toHaveBeenCalledTimes(1)
     expect(db.syncQueue.delete).toHaveBeenCalledTimes(1)
   })
 

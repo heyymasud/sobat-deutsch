@@ -54,16 +54,21 @@ export const DeckManager: React.FC<DeckManagerProps> = ({ onStartReview }) => {
     if (!name) return
 
     try {
+      // Generate the server row's id up front so a retried insert (e.g. this
+      // device's own local write succeeding but the sync push failing/retrying)
+      // upserts the SAME row instead of creating a duplicate deck on the server.
+      const serverId = crypto.randomUUID()
       const deckId = await db.decks.add({
         name,
         createdAt: Date.now(),
+        serverId,
       })
 
       // Sync inserts
       await db.syncQueue.add({
         action: 'insert',
         entityTable: 'decks',
-        entityData: { id: deckId, name, createdAt: Date.now() },
+        entityData: { id: deckId, serverId, name, createdAt: Date.now() },
         queuedAt: Date.now()
       })
 

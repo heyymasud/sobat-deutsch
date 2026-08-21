@@ -440,19 +440,20 @@ class DictionarySyncEngine {
 
   private async pushDeckOp(item: import('../db/dictionaryDb').SyncQueueItem, userId: string): Promise<boolean> {
     if (item.action === 'insert') {
-      const { data, error } = await supabase
+      // Upsert on the client-generated id (set at creation time, see DeckManager)
+      // instead of a plain insert + write-back: a plain insert always creates a
+      // NEW row on retry, and a retry happens whenever this push succeeds but a
+      // later step in the same run fails -- that produced duplicate decks server-
+      // side while the local row silently never learned its serverId. Upserting
+      // the same id makes every retry land on the same row, so it's safe to retry.
+      const { error } = await supabase
         .from('decks')
-        .insert({ name: item.entityData.name, user_id: userId })
-        .select('id')
-        .single()
+        .upsert({ id: item.entityData.serverId, name: item.entityData.name, user_id: userId }, { onConflict: 'id' })
 
       if (error) {
         console.error('Error syncing deck insert:', error)
         return false
       }
-
-      // Remember the server row so later rename/delete ops on this deck can target it.
-      await db.decks.update(item.entityData.id, { serverId: data.id })
       return true
     }
 
