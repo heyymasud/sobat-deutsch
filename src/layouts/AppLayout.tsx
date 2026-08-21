@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { NavLink, Outlet, useNavigate, useOutletContext } from 'react-router-dom'
-import { BookMarked, Layers, Zap, BarChart3, ShieldCheck, Moon, Sun, Sparkles } from 'lucide-react'
+import { BookMarked, Layers, Zap, BarChart3, ShieldCheck, Moon, Sun, BookOpen } from 'lucide-react'
 import { db } from '../core/db/dictionaryDb'
 import type { Deck } from '../core/db/dictionaryDb'
 import { generateCardsForWord } from '../core/srs/srsScheduler'
@@ -139,7 +139,7 @@ export default function AppLayout() {
       <aside className="hidden md:flex flex-col fixed left-0 top-0 h-screen w-64 shrink-0 bg-surface/60 backdrop-blur-xl border-r border-border px-5 py-7 z-40">
         <NavLink to="/" className="flex items-center gap-2.5 mb-10 px-1 font-display font-extrabold text-lg text-ink">
           <span className="w-9 h-9 rounded-xl bg-ink text-canvas flex items-center justify-center">
-            <Sparkles className="w-5 h-5" />
+            <BookOpen className="w-5 h-5" />
           </span>
           <span>Sobat<span className="text-brand">Deutsch</span></span>
         </NavLink>
@@ -210,7 +210,7 @@ export default function AppLayout() {
       <header className="md:hidden fixed top-0 inset-x-0 z-40 bg-surface/90 backdrop-blur-xl border-b border-border flex items-center justify-between px-4 py-3">
         <NavLink to="/" className="flex items-center gap-2 font-display font-extrabold text-ink">
           <span className="w-7 h-7 rounded-lg bg-ink text-canvas flex items-center justify-center">
-            <Sparkles className="w-3.5 h-3.5" />
+            <BookOpen className="w-3.5 h-3.5" />
           </span>
           <span>Sobat<span className="text-brand">Deutsch</span></span>
         </NavLink>

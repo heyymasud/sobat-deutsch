@@ -1,7 +1,7 @@
 import { useEffect } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { motion } from 'framer-motion'
-import { ArrowLeft, Sparkles } from 'lucide-react'
+import { ArrowLeft, BookOpen } from 'lucide-react'
 import { AuthForm } from '../modules/auth/components/AuthForm'
 import { syncEngine } from '../core/sync/syncEngine'
 import { supabase } from '../core/api/supabaseClient'
@@ -27,7 +27,7 @@ export default function Login() {
         <div className="pointer-events-none absolute -right-10 top-10 h-56 w-56 rounded-full bg-gender-m/30 blur-3xl" />
         <div className="pointer-events-none absolute left-10 bottom-20 h-40 w-40 rounded-full bg-gender-f/30 blur-3xl" />
         <Link to="/" className="relative flex items-center gap-2">
-          <span className="grid h-9 w-9 place-items-center rounded-xl bg-canvas text-ink"><Sparkles className="h-5 w-5" /></span>
+          <span className="grid h-9 w-9 place-items-center rounded-xl bg-canvas text-ink"><BookOpen className="h-5 w-5" /></span>
           <span className="font-display text-lg font-extrabold">Sobat Deutsch</span>
         </Link>
         <div className="relative">

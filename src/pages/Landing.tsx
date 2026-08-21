@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { motion } from 'framer-motion'
-import { ArrowUpRight, Sparkles, Zap, Layers, BookMarked, Volume2, Moon, Sun } from 'lucide-react'
+import { ArrowUpRight, BookOpen, Zap, Layers, BookMarked, Volume2, Moon, Sun } from 'lucide-react'
 
 const rise = {
   hidden: { opacity: 0, y: 30 },
@@ -43,7 +43,7 @@ function Nav() {
     <header className="fixed top-0 z-50 w-full">
       <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-5 md:px-12">
         <Link to="/" className="flex items-center gap-2">
-          <span className="grid h-9 w-9 place-items-center rounded-xl bg-ink text-canvas"><Sparkles className="h-5 w-5" /></span>
+          <span className="grid h-9 w-9 place-items-center rounded-xl bg-ink text-canvas"><BookOpen className="h-5 w-5" /></span>
           <span className="font-display text-lg font-extrabold tracking-tight">Sobat<span className="text-brand">Deutsch</span></span>
         </Link>
         <div className="flex items-center gap-2 md:gap-3">
