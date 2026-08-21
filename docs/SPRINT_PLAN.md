@@ -1,6 +1,6 @@
 # Execution Plan — Sobat Deutsch
 
-**Versi Dokumen:** 1.3 — tracker terpisah ([docs/SPRINT_CHECKLIST.md](./SPRINT_CHECKLIST.md)) + mandat DONE di [CLAUDE.md](../CLAUDE.md) ditambahkan
+**Versi Dokumen:** 1.5 — Sprint 10/11/12 ditambahkan (brownfield, sumber: delta di `docs/features/*-DELTA.md`), lihat [docs/CODEBASE_BASELINE.md](./CODEBASE_BASELINE.md) untuk konteks baseline
 
 > **Progres task TIDAK dicatat di dokumen ini.** Dokumen ini adalah rencana (jarang diubah). Tracker live ada di **[docs/SPRINT_CHECKLIST.md](./SPRINT_CHECKLIST.md)** — 78 task, di-generate mekanis dari tabel task di bawah. Kalau task di sini berubah, regenerate checklist-nya (jangan edit manual, mencegah drift). Aturan kapan sebuah task boleh ditandai DONE (gate build/typecheck/lint/test + tidak ada error/warning baru + bukti wajib diisi) mengikat lewat **[CLAUDE.md](../CLAUDE.md)**, supaya berlaku di setiap sesi kerja walau dokumen ini tidak dibuka.
 **Tanggal:** 20 Agustus 2026
@@ -24,6 +24,10 @@
 11. [Sprint 6 — Teacher/Admin Workflow](#sprint-6--teacheradmin-workflow)
 12. [Sprint 7 — Penajaman Pedagogis](#sprint-7--penajaman-pedagogis)
 13. [Sprint 8 — Polish & Rilis](#sprint-8--polish--rilis)
+13b. [Sprint 9 — Perbaikan Pasca-Audit Regresi](#sprint-9--perbaikan-pasca-audit-regresi-s8-08)
+13c. [Sprint 10 — Data Tambahan dari Kaikki](#sprint-10--data-tambahan-dari-kaikki-ipa-etymology-hyphenations)
+13d. [Sprint 11 — Pengelompokan Kata untuk Kuis](#sprint-11--pengelompokan-kata-untuk-kuis--tips-prediksi-gender)
+13e. [Sprint 12 — Perbaikan UX SRS/Flashcard](#sprint-12--perbaikan-ux-srsflashcard)
 14. [Traceability Matrix (Cakupan FR per Sprint)](#14-traceability-matrix)
 15. [Risiko & Jalur Kritis](#15-risiko--jalur-kritis)
 
@@ -111,6 +115,11 @@ gantt
     section Penajaman
     Sprint 7 - Pedagogical Refinement :s7, after s6, 7d
     Sprint 8 - Polish & Rilis         :s8, after s7, 7d
+    section Pasca-Rilis
+    Sprint 9 - Perbaikan Audit S8-08  :done, s9, after s8, 7d
+    Sprint 10 - Data Kaikki Tambahan  :s10, after s9, 7d
+    Sprint 11 - Grouping Kuis + Gender:s11, after s9, 7d
+    Sprint 12 - Perbaikan UX SRS      :s12, after s9, 7d
 ```
 
 ---
@@ -330,6 +339,56 @@ gantt
 
 ---
 
+## Sprint 10 — Data Tambahan dari Kaikki (IPA, Etymology, Hyphenations)
+
+**Tujuan Sprint:** 3 field baru (IPA, etymology, hyphenation) dari raw data Kaikki yang sudah tersedia tapi belum dimanfaatkan, ditambahkan sebagai info tampilan opsional di halaman detail kata. Bersumber dari delta [docs/features/data-kaikki-tambahan-DELTA.md](./features/data-kaikki-tambahan-DELTA.md) — delta ini MENGGANTIKAN PRD+Architecture sebagai requirement source untuk sprint ini (mode brownfield).
+**Epic:** E2 (Dictionary), diperluas dari `docs/CODEBASE_BASELINE.md`.
+
+| ID | Task | Delta Ref | Architecture/Baseline Ref | Est. | Depends on |
+|---|---|---|---|---|---|
+| S10-01 | Tambah `extract_ipa()`, `extract_etymology()` (dengan pembersihan markup Wiktionary), `extract_hyphenation()` di `normalize_dictionary.py` + automated test `scripts/test_normalize_dictionary.py` | FR-DICT-18/19/20, BR-DICT-14, NFR-MNT-05, AC-DICT-15, EC-DICT-11/12 | Baseline §7 (High-Risk: pipeline tanpa test) | M | — |
+| S10-02 | Tambah 3 kolom ke `columns` list di `export_dictionary_full.py` + migration additive `ALTER TABLE dictionary ADD COLUMN ipa/etymology/hyphenation` | FR-DICT-18/19/20 | Delta §5 (Migration Schema) | S | S10-01 |
+| S10-03 | Tambah 3 field opsional ke `DictionaryEntry` (`types.ts`) + Dexie schema v6 (`dictionaryDb.ts`), tanpa mengubah primary key/index yang ada | FR-DICT-18/19/20 | Delta §4, Baseline §7 (riwayat gagal migrasi Dexie v4→v4.1 — delta ini tidak mengubah PK) | S | S10-02 |
+| S10-04 | 3 section tampilan kondisional di `WordDetail.tsx` (IPA di sebelah tombol TTS, etymology, hyphenation) — section disembunyikan total kalau field NULL, bukan "data tidak tersedia" | FR-DICT-18/19/20, BR-DICT-13, AC-DICT-11/12/13/14 | Delta §4 | M | S10-03 |
+| S10-05 | Re-export pipeline, ukur kenaikan ukuran `dictionary-full.vN.json` (maks +15%), jalankan `scripts/validate_dictionary.py` (gate 45/45) sebagai regresi final | NFR-PERF-08, EC-DICT-13 | Delta §8 (Impact on Tests/Regression) | S | S10-01, S10-02 |
+
+**Sprint Goal check:** AC-DICT-11/12/13/14 diverifikasi lolos secara live (buka halaman detail kata dengan & tanpa data IPA/etymology/hyphenation, pastikan section tampil/sembunyi sesuai), `scripts/test_normalize_dictionary.py` dan `scripts/validate_dictionary.py` (45/45) exit 0, ukuran file kamus terukur di bawah +15% (NFR-PERF-08).
+
+---
+
+## Sprint 11 — Pengelompokan Kata untuk Kuis + Tips Prediksi Gender
+
+**Tujuan Sprint:** Ganti label CEFR yang misleading jadi tier frekuensi jujur, tambah bias tier frekuensi di ArtikelRush, reuse rule gender clue sebagai hint kontekstual. Sumber: [docs/features/pengelompokan-kuis-DELTA.md](./features/pengelompokan-kuis-DELTA.md).
+**Epic:** E6 (Artikel Rush), bagian E2 (Dictionary).
+
+| ID | Task | Delta Ref | Est. | Depends on |
+|---|---|---|---|---|
+| S11-01 | Extract `genderClue` dari `WordDetail.tsx` jadi shared util (`src/modules/dictionary/utils/genderClue.ts`) | BR-QUIZ-07 | S | — |
+| S11-02 | Ganti render badge `level` mentah jadi label tier frekuensi di `WordDetail.tsx` & `SearchBar.tsx` | BR-DICT-15, FR-DICT-21, AC-DICT-16, EC-DICT-14 | S | — |
+| S11-03 | Tambah bias tier frekuensi ke `fetchNextWord()` ArtikelRush (tanpa mengganti weighting mistake-count S5-02 yang sudah ada) | FR-QUIZ-12, AC-QUIZ-08, EC-QUIZ-06 | M | — |
+| S11-04 | Tampilkan hint gender clue (reuse S11-01) saat `handleAnswer()` feedback salah | FR-QUIZ-13, BR-QUIZ-07, AC-QUIZ-09/10 | S | S11-01 |
+
+**Sprint Goal check:** AC-DICT-16, AC-QUIZ-08/09/10 diverifikasi live; `ArtikelRush.test.ts` & `WordDetail.test.ts` tetap 100% lulus setelah refactor.
+
+---
+
+## Sprint 12 — Perbaikan UX SRS/Flashcard
+
+**Tujuan Sprint:** Wording rating lebih jelas, manajemen kartu individual (hapus, browse), reset progress deck, hapus Ekspor CSV yang tidak jelas gunanya. Sumber: [docs/features/perbaikan-srs-flashcard-DELTA.md](./features/perbaikan-srs-flashcard-DELTA.md).
+**Epic:** E3 (SRS Flashcard).
+
+| ID | Task | Delta Ref | Est. | Depends on |
+|---|---|---|---|---|
+| S12-01 | Ganti label 4 tombol rating jadi wording deskriptif bahasa Indonesia, tanpa mengubah value 1-4 yang dikirim ke `calculateSm2` | FR-SRS-19, AC-SRS-12 | S | — |
+| S12-02 | Hapus `handleExportDeck` + tombol "Ekspor CSV" dari `DeckManager.tsx` | BR-SRS-13, AC-SRS-16 | S | — |
+| S12-03 | UI browse kartu per-deck (lemma, cardType, status due) di `DeckManager.tsx` | FR-SRS-21, AC-SRS-14 | M | — |
+| S12-04 | Aksi hapus kartu individual dari deck (dengan konfirmasi), terhubung ke `syncQueue` | FR-SRS-20, AC-SRS-13, EC-SRS-12 | M | S12-03 |
+| S12-05 | Aksi "Reset Progress" per deck (dengan konfirmasi) — update field jadwal semua kartu tanpa menghapus kartu, terhubung ke `syncQueue` | FR-SRS-22, BR-SRS-12, AC-SRS-15, EC-SRS-11 | M | S12-03 |
+
+**Sprint Goal check:** AC-SRS-12/13/14/15/16 diverifikasi live (termasuk cek `syncQueue` terisi untuk S12-04/05); `DeckManager.test.ts`/`ReviewSession.test.ts` (kalau ada) tetap lulus.
+
+---
+
 ## 13a. Backlog — Sengaja Belum Dijadwalkan (Should/Could, Bukan Terlewat)
 
 Ditemukan lewat audit konsistensi (20 Agustus 2026): FR berikut **tidak punya task** di sprint manapun. Setelah triase, ini bukan celah yang harus ditambal jadi task baru — semuanya berprioritas **Should/Could** (bukan Must) di PRD, dan scope-nya masuk akal ditunda ke luar 8 sprint v1. Didaftar di sini secara eksplisit supaya statusnya **jelas sengaja ditunda**, bukan diam-diam terlewat:
@@ -373,6 +432,12 @@ Cakupan modul FR PRD terhadap sprint:
 **Cakupan terverifikasi per 20 Agustus 2026:** seluruh 185 ID FR/BR/NFR individual di PRD sudah ditelusuri satu per satu (bukan cuma level modul) — hasilnya ada di tabel di atas + §13a. Setiap ID yang tidak muncul di task manapun sekarang punya salah satu dari tiga status eksplisit: **(a)** ditambahkan sebagai task baru, **(b)** dicatat sengaja ditunda di backlog §13a, atau **(c)** ditandai cross-cutting/melekat ke task lain. Tidak ada ID yang statusnya "tidak diketahui".
 
 **Update pasca-audit S8-08 (20 Agustus 2026):** audit AC-by-AC penuh terhadap seluruh 59 AC §14 menemukan 8 AC yang statusnya GAP-FOUND (kode ada tapi perilakunya belum sesuai kriteria) — ditambahkan sebagai Sprint 9 di atas: AC-SYNC-01/02/03, AC-UX-05, AC-SRS-03/07/09/11, AC-QUIZ-05. Ini bukan FR/BR yang hilang dari tracking (semuanya sudah pernah dijadwalkan di Sprint 2-7), melainkan implementasi yang perlu diperbaiki/dituntaskan.
+
+**Update Sprint 10 (21 Agustus 2026, brownfield):** ID baru dari [docs/features/data-kaikki-tambahan-DELTA.md](./features/data-kaikki-tambahan-DELTA.md) — FR-DICT-18/19/20, BR-DICT-13/14, NFR-PERF-08, NFR-MNT-05, AC-DICT-11/12/13/14, EC-DICT-11/12/13 — seluruhnya tercakup di task S10-01 s/d S10-05 di atas. Ini bukan ID dari PRD.md (delta ini mengganti PRD+Architecture sebagai requirement source untuk Sprint 10, sesuai mode brownfield), jadi tidak masuk hitungan "185 ID PRD" di atas — dicatat terpisah di sini agar tetap eksplisit dan tertelusuri.
+
+**Update Sprint 11 (21 Agustus 2026, brownfield):** ID baru dari [docs/features/pengelompokan-kuis-DELTA.md](./features/pengelompokan-kuis-DELTA.md) — BR-DICT-15, FR-DICT-21, AC-DICT-16, EC-DICT-14, FR-QUIZ-12/13, BR-QUIZ-07, AC-QUIZ-08/09/10, EC-QUIZ-06 — seluruhnya tercakup di task S11-01 s/d S11-04.
+
+**Update Sprint 12 (21 Agustus 2026, brownfield):** ID baru dari [docs/features/perbaikan-srs-flashcard-DELTA.md](./features/perbaikan-srs-flashcard-DELTA.md) — FR-SRS-19/20/21/22, BR-SRS-12/13, AC-SRS-12/13/14/15/16, EC-SRS-11/12 — seluruhnya tercakup di task S12-01 s/d S12-05.
 
 ---
 

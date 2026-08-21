@@ -148,4 +148,16 @@ Sempat dikira belum ada, tapi setelah dicek ke kode ternyata sudah lengkap dan r
 - Link ke halaman ini ada di `src/layouts/AppLayout.tsx:184-192` (tombol "Akun Saya"/"Pengaturan" di layout utama).
 - **Tidak perlu masuk scope delta apa pun** — dicatat di sini supaya tidak dibahas ulang tanpa alasan baru.
 
+## 7. Ide baru: Teacher bisa menulis artikel/tips belajar
+
+**Ide dari user**: Teacher (role yang sudah ada, sekarang cuma bisa ajukan koreksi kamus) bisa juga menulis artikel/blog berisi tips belajar bahasa Jerman, dan user lain (Student/Guest) bisa membacanya.
+
+**Belum dianalisis sama sekali** — ini murni ide mentah, belum dicek terhadap baseline/konflik fitur existing. Beberapa pertanyaan yang perlu dijawab sebelum masuk `plan-feature-delta`:
+- Moderasi: apakah artikel Teacher perlu approve Admin dulu (konsisten pola koreksi kamus BR-DICT-01/FR-ADM-01), atau publish langsung?
+- Format konten: rich text/markdown? Ada gambar? Perlu editor apa?
+- Discovery: di mana artikel ini muncul di UI (halaman terpisah, section di dashboard, terhubung ke kata tertentu di kamus)?
+- Ini akan jadi modul baru (`src/modules/articles/` atau serupa) + tabel baru di Supabase — blast radius perlu dipetakan dulu.
+
+**Status**: dicatat sebagai ide terbuka, belum masuk scope delta apapun.
+
 <!-- Tambahkan ide fitur lain di bawah sini, format bebas, sebagai H2 baru -->

@@ -54,7 +54,14 @@ App jalan di `http://localhost:5173` (default Vite).
 - **Email verifikasi & reset password** lokal ditangkap Mailpit, bukan terkirim sungguhan: `http://127.0.0.1:54324`.
 - **Supabase Studio** (lihat isi tabel, jalankan SQL manual) ada di `http://127.0.0.1:54323`.
 - Kalau Docker/Supabase mati, jalankan ulang `npx supabase start` sebelum `npm run dev`.
-- `npx supabase db reset --local` mengulang semua migration dari nol (berguna kalau skema berubah, tapi menghapus semua data lokal).
+- `npx supabase db reset --local` mengulang semua migration dari nol (berguna kalau skema berubah, tapi menghapus semua data lokal — **termasuk `auth.users`**, jadi akun yang sudah login sebelumnya jadi tidak valid lagi walau sesi browser masih kelihatan aktif).
+- **Tidak ada akun admin ter-seed otomatis** oleh `db reset` (tidak ada `supabase/seed.sql`, dan role admin butuh promosi manual — tidak ada sign-up flow yang otomatis kasih role admin). Setelah `db reset`, jalankan:
+
+  ```bash
+  npm run seed:admin
+  ```
+
+  Butuh `SEED_ADMIN_EMAIL`/`SEED_ADMIN_PASSWORD` di `.env.local` (lihat `.env.example`). Script ini idempotent — aman dijalankan berkali-kali, reuse akun yang sudah ada alih-alih duplikat.
 
 ## Gate wajib sebelum menandai task selesai
 
