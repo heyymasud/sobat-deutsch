@@ -101,7 +101,10 @@ describe('Automatic Card Generation', () => {
       superlative: null,
       level: 'A1',
       theme_tags: null,
-      frequency_rank: 100
+      frequency_rank: 100,
+      ipa: null,
+      etymology: null,
+      hyphenation: null
     }
 
     const cards = generateCardsForWord(verb, 1)
@@ -129,7 +132,10 @@ describe('Automatic Card Generation', () => {
       superlative: null,
       level: 'A1',
       theme_tags: null,
-      frequency_rank: 200
+      frequency_rank: 200,
+      ipa: null,
+      etymology: null,
+      hyphenation: null
     }
 
     const cards = generateCardsForWord(noun, 1)
@@ -162,7 +168,10 @@ describe('Automatic Card Generation', () => {
       superlative: null,
       level: 'A1',
       theme_tags: null,
-      frequency_rank: 50
+      frequency_rank: 50,
+      ipa: null,
+      etymology: null,
+      hyphenation: null
     }
 
     const cards = generateCardsForWord(enrichedVerb, 1)

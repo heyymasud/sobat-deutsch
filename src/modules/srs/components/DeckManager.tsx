@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
-import { BarChart3, ArrowRight } from 'lucide-react'
+import { BarChart3, ArrowRight, Layers, RotateCcw, Pencil, Trash2 } from 'lucide-react'
 import { db } from '../../../core/db/dictionaryDb'
-import type { Deck } from '../../../core/db/dictionaryDb'
+import type { Deck, SrsCard } from '../../../core/db/dictionaryDb'
 import { syncEngine } from '../../../core/sync/syncEngine'
 
 interface DeckWithStats extends Deck {
@@ -133,47 +133,89 @@ export const DeckManager: React.FC<DeckManagerProps> = ({ onStartReview }) => {
     }
   };
 
-  const handleExportDeck = async (deckId: number, deckName: string) => {
+  // FR-SRS-21: browse the cards inside a deck directly in-app (replaces the
+  // CSV export removed in this delta — BR-SRS-13).
+  const [expandedDeckId, setExpandedDeckId] = useState<number | null>(null)
+  const [deckCards, setDeckCards] = useState<(SrsCard & { lemma: string })[]>([])
+
+  async function loadDeckCards(deckId: number) {
+    const cards = await db.srsCards.where('deckId').equals(deckId).toArray()
+    const withLemma = await Promise.all(
+      cards.map(async (card) => {
+        const word = await db.dictionary.where('lemma').equals(card.wordRef).first()
+        return { ...card, lemma: word?.lemma || card.wordRef }
+      })
+    )
+    setDeckCards(withLemma)
+  }
+
+  const handleToggleBrowse = async (deckId: number) => {
+    if (expandedDeckId === deckId) {
+      setExpandedDeckId(null)
+      setDeckCards([])
+      return
+    }
+    setExpandedDeckId(deckId)
+    await loadDeckCards(deckId)
+  };
+
+  // FR-SRS-20: remove a single card from a deck without deleting the deck.
+  const handleDeleteCard = async (card: SrsCard) => {
+    if (!confirm(`Hapus kartu "${card.wordRef}" (${card.cardType}) dari deck ini?`)) return
+
+    try {
+      await db.transaction('rw', [db.srsCards, db.syncQueue], async () => {
+        await db.srsCards.delete(card.id!)
+        // srs_cards has no local serverId tracking -- capture the natural key
+        // (deckId/wordRef/cardType) now, since the local row is gone by the
+        // time syncEngine pushes this (see syncEngine.ts srsCards delete handler).
+        await db.syncQueue.add({
+          action: 'delete',
+          entityTable: 'srsCards',
+          entityData: { deckId: card.deckId, wordRef: card.wordRef, cardType: card.cardType },
+          queuedAt: Date.now(),
+        })
+      })
+      syncEngine.triggerSync()
+      loadDecks()
+      await loadDeckCards(card.deckId)
+    } catch (err) {
+      console.error('Failed to delete card:', err)
+      alert('Gagal menghapus kartu.')
+    }
+  };
+
+  // FR-SRS-22/BR-SRS-12: reset every card's schedule back to new, without
+  // deleting any card. Defaults mirror generateCardsForWord (srsScheduler.ts).
+  const handleResetProgress = async (deckId: number) => {
+    if (!confirm('Reset progress SEMUA kartu di deck ini? Kartu TIDAK akan dihapus, tapi jadwal belajarnya dimulai ulang dari awal.')) return
+
     try {
       const cards = await db.srsCards.where('deckId').equals(deckId).toArray()
-      if (cards.length === 0) {
-        alert('Deck ini kosong, tidak ada kartu untuk diekspor.')
-        return
-      }
-
-      const headers = ['Card ID', 'Lemma', 'POS', 'Card Type', 'Interval (Days)', 'Ease Factor', 'Repetitions', 'Due Date']
-      const rows = [headers]
-
-      for (const card of cards) {
-        const word = await db.dictionary.where('lemma').equals(card.wordRef).first()
-        rows.push([
-          card.id?.toString() || '',
-          word?.lemma || '',
-          word?.pos || '',
-          card.cardType,
-          card.interval.toString(),
-          card.easeFactor.toString(),
-          card.repetitions.toString(),
-          new Date(card.dueDate).toISOString()
-        ])
-      }
-
-      const csvContent = rows
-        .map((e) => e.map((val) => `"${val.replace(/"/g, '""')}"`).join(','))
-        .join('\n')
-
-      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
-      const url = URL.createObjectURL(blob)
-      const link = document.createElement('a')
-      link.setAttribute('href', url)
-      link.setAttribute('download', `${deckName.replace(/\s+/g, '_')}_export.csv`)
-      link.style.visibility = 'hidden'
-      document.body.appendChild(link)
-      link.click()
-      document.body.removeChild(link)
+      const now = Date.now()
+      await db.transaction('rw', [db.srsCards, db.syncQueue], async () => {
+        for (const card of cards) {
+          await db.srsCards.update(card.id!, {
+            interval: 0,
+            easeFactor: 2.5,
+            repetitions: 0,
+            dueDate: now,
+            updatedAt: now,
+          })
+          await db.syncQueue.add({
+            action: 'update',
+            entityTable: 'srsCards',
+            entityData: { id: card.id!, interval: 0, easeFactor: 2.5, repetitions: 0, dueDate: now, updatedAt: now },
+            queuedAt: Date.now(),
+          })
+        }
+      })
+      syncEngine.triggerSync()
+      loadDecks()
+      if (expandedDeckId === deckId) await loadDeckCards(deckId)
     } catch (err) {
-      console.error('Failed to export deck:', err)
-      alert('Gagal mengekspor deck.')
+      console.error('Failed to reset deck progress:', err)
+      alert('Gagal mereset progress deck.')
     }
   };
 
@@ -225,59 +267,117 @@ export const DeckManager: React.FC<DeckManagerProps> = ({ onStartReview }) => {
           </div>
         ) : (
           decks.map((deck) => (
-            <div key={deck.id} className="card p-6 flex flex-col sm:flex-row justify-between sm:items-center gap-4">
-              <div className="flex-1">
-                {editingDeckId === deck.id ? (
-                  <div className="flex gap-2 items-center">
-                    <input
-                      type="text"
-                      className="field-input !w-auto text-sm py-1.5"
-                      value={editingName}
-                      onChange={(e) => setEditingName(e.target.value)}
-                    />
-                    <button onClick={() => handleRenameDeck(deck.id!)} className="text-xs font-display font-bold text-brand hover:underline">
-                      Simpan
-                    </button>
-                    <button onClick={() => setEditingDeckId(null)} className="text-xs text-ink-faint hover:underline">
-                      Batal
-                    </button>
-                  </div>
-                ) : (
-                  <>
-                    <h3 className="font-display font-bold text-ink text-lg">{deck.name}</h3>
-                    <div className="flex gap-3 text-xs text-ink-faint mt-1.5 font-medium">
-                      <span>Total: {deck.totalCount} kartu</span>
-                      <span>•</span>
-                      <span className={deck.dueCount > 0 ? 'text-brand font-bold' : ''}>
-                        Due: {deck.dueCount} kartu
-                      </span>
+            <div key={deck.id} className="card p-6 flex flex-col gap-4">
+              <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4">
+                <div className="flex-1">
+                  {editingDeckId === deck.id ? (
+                    <div className="flex gap-2 items-center">
+                      <input
+                        type="text"
+                        className="field-input !w-auto text-sm py-1.5"
+                        value={editingName}
+                        onChange={(e) => setEditingName(e.target.value)}
+                      />
+                      <button onClick={() => handleRenameDeck(deck.id!)} className="text-xs font-display font-bold text-brand hover:underline">
+                        Simpan
+                      </button>
+                      <button onClick={() => setEditingDeckId(null)} className="text-xs text-ink-faint hover:underline">
+                        Batal
+                      </button>
                     </div>
-                  </>
-                )}
+                  ) : (
+                    <>
+                      <h3 className="font-display font-bold text-ink text-lg">{deck.name}</h3>
+                      <div className="flex gap-3 text-xs text-ink-faint mt-1.5 font-medium">
+                        <span>Total: {deck.totalCount} kartu</span>
+                        <span>•</span>
+                        <span className={deck.dueCount > 0 ? 'text-brand font-bold' : ''}>
+                          Due: {deck.dueCount} kartu
+                        </span>
+                      </div>
+                    </>
+                  )}
+                </div>
+
+                <div className="flex items-center gap-4 justify-end flex-wrap">
+                  {editingDeckId !== deck.id && (
+                    <div className="flex items-center gap-1 shrink-0">
+                      <button
+                        onClick={() => handleToggleBrowse(deck.id!)}
+                        title={expandedDeckId === deck.id ? 'Tutup daftar kartu' : 'Lihat isi kartu'}
+                        aria-label={expandedDeckId === deck.id ? 'Tutup daftar kartu' : 'Lihat isi kartu'}
+                        aria-pressed={expandedDeckId === deck.id}
+                        className={`grid h-9 w-9 place-items-center rounded-lg transition-colors ${expandedDeckId === deck.id ? 'bg-brand-soft text-brand' : 'text-ink-muted hover:bg-surface-muted hover:text-brand'}`}
+                      >
+                        <Layers className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={() => handleResetProgress(deck.id!)}
+                        title="Reset progress"
+                        aria-label="Reset progress"
+                        className="grid h-9 w-9 place-items-center rounded-lg text-ink-muted hover:bg-surface-muted hover:text-brand transition-colors"
+                      >
+                        <RotateCcw className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={() => handleStartRename(deck)}
+                        title="Ubah nama"
+                        aria-label="Ubah nama"
+                        className="grid h-9 w-9 place-items-center rounded-lg text-ink-muted hover:bg-surface-muted hover:text-brand transition-colors"
+                      >
+                        <Pencil className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={() => handleDeleteDeck(deck.id!)}
+                        title="Hapus deck"
+                        aria-label="Hapus deck"
+                        className="grid h-9 w-9 place-items-center rounded-lg text-ink-muted hover:bg-danger-soft hover:text-danger transition-colors"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  )}
+
+                  <button
+                    onClick={() => onStartReview(deck.id!)}
+                    className={deck.dueCount > 0 ? 'btn-primary !py-2.5 !px-5 text-xs shrink-0' : 'btn-secondary !py-2.5 !px-5 text-xs shrink-0'}
+                  >
+                    {deck.dueCount > 0 ? 'Mulai Belajar' : 'Buka Deck'}
+                  </button>
+                </div>
               </div>
 
-              <div className="flex items-center gap-3 justify-end flex-wrap">
-                {editingDeckId !== deck.id && (
-                  <>
-                    <button onClick={() => handleExportDeck(deck.id!, deck.name)} className="text-xs text-ink-muted hover:text-brand transition font-semibold">
-                      Ekspor CSV
-                    </button>
-                    <button onClick={() => handleStartRename(deck)} className="text-xs text-ink-muted hover:text-brand transition font-semibold">
-                      Ubah Nama
-                    </button>
-                    <button onClick={() => handleDeleteDeck(deck.id!)} className="text-xs text-ink-muted hover:text-danger transition font-semibold">
-                      Hapus
-                    </button>
-                  </>
-                )}
-
-                <button
-                  onClick={() => onStartReview(deck.id!)}
-                  className={deck.dueCount > 0 ? 'btn-primary !py-2.5 !px-5 text-xs' : 'btn-secondary !py-2.5 !px-5 text-xs'}
-                >
-                  {deck.dueCount > 0 ? 'Mulai Belajar' : 'Buka Deck'}
-                </button>
-              </div>
+              {/* FR-SRS-21: browse kartu di dalam deck */}
+              {expandedDeckId === deck.id && (
+                <div className="border-t border-border pt-4">
+                  {deckCards.length === 0 ? (
+                    <p className="text-xs text-ink-faint italic">Deck ini belum punya kartu.</p>
+                  ) : (
+                    <ul className="flex flex-col gap-1.5 max-h-64 overflow-y-auto">
+                      {deckCards.map((card) => {
+                        const isDue = card.dueDate <= Date.now()
+                        return (
+                          <li key={card.id} className="flex items-center justify-between gap-3 text-xs py-1.5 px-2 rounded-lg hover:bg-surface-muted">
+                            <span className="flex-1 min-w-0 truncate">
+                              <span className="font-semibold text-ink">{card.lemma}</span>
+                              <span className="text-ink-faint"> · {card.cardType}</span>
+                            </span>
+                            <span className={isDue ? 'text-brand font-semibold shrink-0' : 'text-ink-faint shrink-0'}>
+                              {isDue ? 'Due' : 'Belum due'}
+                            </span>
+                            <button
+                              onClick={() => handleDeleteCard(card)}
+                              className="text-ink-faint hover:text-danger transition font-semibold shrink-0"
+                            >
+                              Hapus
+                            </button>
+                          </li>
+                        )
+                      })}
+                    </ul>
+                  )}
+                </div>
+              )}
             </div>
           ))
         )}

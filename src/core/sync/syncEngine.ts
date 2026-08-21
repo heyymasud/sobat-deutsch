@@ -16,6 +16,7 @@ export type SyncEngineListener = (status: SyncEngineStatus) => void
 
 class DictionarySyncEngine {
   private isSyncing = false
+  private inFlightSync: Promise<void> | null = null
   private onlineStatus = navigator.onLine
   private listeners = new Set<SyncEngineListener>()
   // ponytail: tracked incrementally via Dexie hooks below instead of re-querying
@@ -173,8 +174,26 @@ class DictionarySyncEngine {
    * Synchronize pending syncQueue items to Supabase.
    */
   public async triggerSync(): Promise<void> {
-    if (this.isSyncing || !this.onlineStatus) return
+    // Guard set SYNCHRONOUSLY (before any await) so a second concurrent call --
+    // e.g. the 'online' event firing right after a manual "Coba Lagi" click, or
+    // a burst of handleRating()/handleResetProgress() calls each triggering a
+    // sync -- can never slip past the `isSyncing` check just because the first
+    // call hasn't reached its first `await` yet (isSyncing was only set AFTER
+    // two awaits: getSession() and the queue read). Without this, two concurrent
+    // runs process the same queue items twice, and whichever run's `finally`
+    // block finishes LAST wins the final status -- observed: a run that failed
+    // overwrote a later successful run's 'synced' status with a stale 'error',
+    // leaving "Gagal sync" stuck on screen despite the log showing a clean push.
+    if (this.inFlightSync) return this.inFlightSync
+    if (!this.onlineStatus) return
 
+    this.inFlightSync = this.runTriggerSync().finally(() => {
+      this.inFlightSync = null
+    })
+    return this.inFlightSync
+  }
+
+  private async runTriggerSync(): Promise<void> {
     const { data: { session } } = await supabase.auth.getSession()
     if (!session) return // Syncing only for authenticated users
 
@@ -252,6 +271,29 @@ class DictionarySyncEngine {
 
         if (error) {
           console.error('Error syncing card update:', error)
+          return false
+        }
+        return true
+      }
+
+      if (item.entityTable === 'srsCards' && item.action === 'delete') {
+        // The local card row is already gone by the time this is queued, so
+        // the caller (DeckManager, FR-SRS-20) must capture deckId/wordRef/
+        // cardType into entityData beforehand -- srs_cards has no local
+        // serverId tracking, its server row is found by natural key, same
+        // pattern as pushReviewLogInsert below.
+        const localDeck = await db.decks.get(item.entityData.deckId)
+        if (!localDeck?.serverId) return true // deck never synced -- nothing on the server to delete
+
+        const { error } = await supabase
+          .from('srs_cards')
+          .delete()
+          .eq('deck_id', localDeck.serverId)
+          .eq('word_ref', item.entityData.wordRef)
+          .eq('card_type', item.entityData.cardType)
+
+        if (error) {
+          console.error('Error syncing card delete:', error)
           return false
         }
         return true

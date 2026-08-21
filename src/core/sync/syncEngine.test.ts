@@ -204,6 +204,88 @@ describe('syncEngine.triggerSync', () => {
     expect(db.syncQueue.delete).not.toHaveBeenCalled()
   })
 
+  // Regression: two triggerSync() calls fired near-simultaneously (e.g. the
+  // 'online' event racing a manual "Coba Lagi" click) used to both slip past
+  // the `isSyncing` guard during the pre-await window, process the SAME queue
+  // items twice, and whichever run's `finally` finished LAST would overwrite
+  // the other's status -- observed live: a stale failing run clobbered a
+  // later successful run's 'synced' status with 'error', leaving "Gagal sync"
+  // stuck on screen despite the console log showing a clean push.
+  it('two concurrent triggerSync() calls only push the queue once, not twice', async () => {
+    const { syncEngine } = await import('./syncEngine')
+
+    const queueItem = {
+      id: 20,
+      action: 'insert' as const,
+      entityTable: 'decks' as const,
+      entityData: { id: 99, name: 'Verben' },
+      queuedAt: 1,
+    }
+    ;(db.syncQueue.orderBy as any).mockReturnValue({ toArray: vi.fn().mockResolvedValue([queueItem]) })
+
+    const single = vi.fn().mockResolvedValue({ data: { id: 'server-deck-uuid' }, error: null })
+    const select = vi.fn(() => ({ single }))
+    const insert = vi.fn(() => ({ select }))
+    ;(supabase.from as any).mockReturnValue({ insert })
+
+    await Promise.all([syncEngine.triggerSync(), syncEngine.triggerSync()])
+
+    // Only one push should have actually run -- one insert call, not two
+    // interleaved pushes of the same item.
+    expect(insert).toHaveBeenCalledTimes(1)
+    expect(db.syncQueue.delete).toHaveBeenCalledTimes(1)
+  })
+
+  // S12-04 (FR-SRS-20, AC-SRS-13): deleting one card from a deck must also
+  // remove its server row -- srs_cards has no local serverId, so its row is
+  // found by natural key (deck_id/word_ref/card_type), same as reviewLogs above.
+  it('pushes a srsCards delete item by resolving the server row via deck_id/word_ref/card_type', async () => {
+    const { syncEngine } = await import('./syncEngine')
+
+    const queueItem = {
+      id: 12,
+      action: 'delete' as const,
+      entityTable: 'srsCards' as const,
+      entityData: { deckId: 1, wordRef: 'gehen', cardType: 'konjugasi' },
+      queuedAt: 1,
+    }
+    ;(db.syncQueue.orderBy as any).mockReturnValue({ toArray: vi.fn().mockResolvedValue([queueItem]) })
+    ;(db.decks.get as any).mockResolvedValue({ id: 1, serverId: 'server-deck-uuid' })
+
+    const eq3 = vi.fn().mockResolvedValue({ error: null })
+    const eq2 = vi.fn(() => ({ eq: eq3 }))
+    const eq1 = vi.fn(() => ({ eq: eq2 }))
+    const del = vi.fn(() => ({ eq: eq1 }))
+    ;(supabase.from as any).mockReturnValue({ delete: del })
+
+    await syncEngine.triggerSync()
+
+    expect(supabase.from).toHaveBeenCalledWith('srs_cards')
+    expect(eq1).toHaveBeenCalledWith('deck_id', 'server-deck-uuid')
+    expect(eq2).toHaveBeenCalledWith('word_ref', 'gehen')
+    expect(eq3).toHaveBeenCalledWith('card_type', 'konjugasi')
+    expect(db.syncQueue.delete).toHaveBeenCalledWith(12)
+  })
+
+  it('drops a srsCards delete item without calling the server when the deck never synced', async () => {
+    const { syncEngine } = await import('./syncEngine')
+
+    const queueItem = {
+      id: 13,
+      action: 'delete' as const,
+      entityTable: 'srsCards' as const,
+      entityData: { deckId: 2, wordRef: 'laufen', cardType: 'gender' },
+      queuedAt: 1,
+    }
+    ;(db.syncQueue.orderBy as any).mockReturnValue({ toArray: vi.fn().mockResolvedValue([queueItem]) })
+    ;(db.decks.get as any).mockResolvedValue({ id: 2, serverId: undefined })
+
+    await syncEngine.triggerSync()
+
+    expect(supabase.from).not.toHaveBeenCalled()
+    expect(db.syncQueue.delete).toHaveBeenCalledWith(13)
+  })
+
   // S9-02 (AC-SYNC-01, AC-SYNC-03, FR-SYNC-06): syncEngine must expose its own
   // queue status (separate from syncManager's dictionary-download status) so
   // the UI can show "Tersinkron" / "X menunggu" / an error + retry affordance.

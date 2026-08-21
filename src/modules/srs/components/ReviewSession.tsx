@@ -633,28 +633,28 @@ export const ReviewSession: React.FC<ReviewSessionProps> = ({ deckId, onFinish }
                 onClick={(e) => { e.stopPropagation(); handleRating(1) }}
                 className="h-14 rounded-xl text-xs font-bold transition-transform active:scale-95 flex flex-col justify-center items-center text-white bg-danger"
               >
-                Lagi
+                Belum Hafal
                 <span className="block font-normal text-xs opacity-80">1h</span>
               </button>
               <button
                 onClick={(e) => { e.stopPropagation(); handleRating(2) }}
                 className="h-14 rounded-xl text-xs font-bold transition-transform active:scale-95 flex flex-col justify-center items-center text-ink bg-gender-p"
               >
-                Keras
+                Agak Sulit
                 <span className="block font-normal text-xs opacity-80">1d</span>
               </button>
               <button
                 onClick={(e) => { e.stopPropagation(); handleRating(3) }}
                 className="h-14 rounded-xl text-xs font-bold transition-transform active:scale-95 flex flex-col justify-center items-center text-white bg-brand"
               >
-                Baik
+                Ingat
                 <span className="block font-normal text-xs opacity-80">4d</span>
               </button>
               <button
                 onClick={(e) => { e.stopPropagation(); handleRating(4) }}
                 className="h-14 rounded-xl text-xs font-bold transition-transform active:scale-95 flex flex-col justify-center items-center text-white bg-success"
               >
-                Mudah
+                Sangat Mudah
                 <span className="block font-normal text-xs opacity-80">8d</span>
               </button>
             </div>
