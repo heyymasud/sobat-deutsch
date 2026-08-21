@@ -136,6 +136,56 @@ def extract_example(entry):
     return None
 
 
+def extract_ipa(entry):
+    """FR-DICT-18. `sounds[]` mixes ipa/audio/rhymes/homophone entries; take
+    the first one that actually has an `ipa` key."""
+    for sound in (entry.get("sounds") or []):
+        ipa = sound.get("ipa")
+        if ipa:
+            return ipa
+    return None
+
+
+SENTENCE_LINE_RE = re.compile(r"[.]\s*$")
+
+
+def extract_etymology(entry):
+    """
+    FR-DICT-19/BR-DICT-14. `etymology_text` sering diawali blok "Etymology
+    tree" (daftar leluhur kata per baris, mis. "Proto-Germanic *husa") yang
+    terlalu teknis untuk pembelajar dan bukan prosa -- baris semacam itu TIDAK
+    diakhiri titik. Baris naratif yang berguna (mis. "From Middle High German
+    hus, from Old High German hus.") selalu diakhiri titik dan berisi >=4
+    kata. Ambil hanya baris yang cocok kriteria itu; kalau tidak ada satu pun
+    yang lolos, kembalikan None (EC-DICT-11) daripada menampilkan noise teknis
+    mentah ke user.
+    """
+    text = entry.get("etymology_text")
+    if not text:
+        return None
+    sentences = []
+    for line in text.split("\n"):
+        line = line.strip()
+        if not line or not SENTENCE_LINE_RE.search(line):
+            continue
+        if len(line.split()) < 4:
+            continue
+        sentences.append(line)
+    return " ".join(sentences) if sentences else None
+
+
+def extract_hyphenation(entry):
+    """FR-DICT-20. Ambil varian pemisahan suku kata PERTAMA saja kalau ada
+    lebih dari satu opsi (EC-DICT-12) -- konsisten dengan pola
+    extract_translations/extract_example yang juga ambil representatif
+    pertama, bukan menggabung semua opsi."""
+    for h in (entry.get("hyphenations") or []):
+        parts = h.get("parts")
+        if parts:
+            return "·".join(parts)
+    return None
+
+
 def extract_separable_prefix(entry):
     """
     head_templates['de-verb'].args['1'] format: "auf.stehen<...>" jika separable
@@ -231,7 +281,10 @@ def init_db(conn):
             translations TEXT,
             example TEXT,
             separable_prefix INTEGER,
-            auxiliary TEXT
+            auxiliary TEXT,
+            ipa TEXT,
+            etymology TEXT,
+            hyphenation TEXT
         );
         CREATE INDEX IF NOT EXISTS idx_words_lemma ON words(lemma);
         CREATE VIRTUAL TABLE IF NOT EXISTS words_fts USING fts5(
@@ -294,12 +347,17 @@ def run(limit=None):
             example = extract_example(entry)
             separable = extract_separable_prefix(entry) if pos == "verb" else None
             auxiliary = extract_auxiliary(entry) if pos == "verb" else None
+            ipa = extract_ipa(entry)
+            etymology = extract_etymology(entry)
+            hyphenation = extract_hyphenation(entry)
 
             conn.execute(
                 """INSERT INTO words
-                   (lemma, pos, gender, plural, translations, example, separable_prefix, auxiliary)
-                   VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
-                (lemma, pos, gender, plural, translations, example, separable, auxiliary),
+                   (lemma, pos, gender, plural, translations, example, separable_prefix, auxiliary,
+                    ipa, etymology, hyphenation)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                (lemma, pos, gender, plural, translations, example, separable, auxiliary,
+                 ipa, etymology, hyphenation),
             )
             inserted += 1
 

@@ -41,9 +41,10 @@ def run():
     # 2. Fetch data from SQLite
     print("Fetching words from SQLite...")
     sqlite_curr.execute("""
-        SELECT lemma, pos, gender, plural, translations, example, 
-               separable_prefix, auxiliary, frequency_rank, verb_class, 
-               ablaut_class, conjugation_table, case_governance, level
+        SELECT lemma, pos, gender, plural, translations, example,
+               separable_prefix, auxiliary, frequency_rank, verb_class,
+               ablaut_class, conjugation_table, case_governance, level,
+               ipa, etymology, hyphenation
         FROM words
     """)
     
@@ -54,9 +55,10 @@ def run():
     # 3. Batch insert into Postgres
     insert_query = """
         INSERT INTO public.dictionary (
-            lemma, pos, gender, plural, translations, example, 
-            separable_prefix, auxiliary, frequency_rank, verb_class, 
-            ablaut_class, conjugation_table, case_governance, level
+            lemma, pos, gender, plural, translations, example,
+            separable_prefix, auxiliary, frequency_rank, verb_class,
+            ablaut_class, conjugation_table, case_governance, level,
+            ipa, etymology, hyphenation
         ) VALUES %s
     """
     
@@ -69,7 +71,8 @@ def run():
     
     for row in rows:
         lemma, pos, gender, plural, translations, example, separable_prefix, auxiliary, \
-        frequency_rank, verb_class, ablaut_class, conjugation_table, case_governance, level = row
+        frequency_rank, verb_class, ablaut_class, conjugation_table, case_governance, level, \
+        ipa, etymology, hyphenation = row
         
         # Convert separable_prefix to text
         sep_pref = str(separable_prefix) if separable_prefix is not None else None
@@ -89,7 +92,8 @@ def run():
         batch.append((
             lemma, pos, gender, plural, translations, example,
             sep_pref, auxiliary, freq_rank, verb_class,
-            ablaut_class, conjugation_table, case_gov, level
+            ablaut_class, conjugation_table, case_gov, level,
+            ipa, etymology, hyphenation
         ))
         
         if len(batch) >= batch_size:

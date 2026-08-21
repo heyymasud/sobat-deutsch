@@ -48,21 +48,34 @@ def run():
     # 3. Fetch all dictionary entries
     print("Fetching entries from Postgres...")
     columns = [
-        "id", "lemma", "pos", "gender", "plural", "genitiv_singular", "translations", 
-        "example", "separable_prefix", "auxiliary", "verb_class", "ablaut_class", 
-        "conjugation_table", "case_governance", "comparative", "superlative", 
-        "level", "theme_tags", "frequency_rank"
+        "id", "lemma", "pos", "gender", "plural", "genitiv_singular", "translations",
+        "example", "separable_prefix", "auxiliary", "verb_class", "ablaut_class",
+        "conjugation_table", "case_governance", "comparative", "superlative",
+        "level", "theme_tags", "frequency_rank",
+        "ipa", "etymology", "hyphenation"
     ]
     query = f"SELECT {', '.join(columns)} FROM public.dictionary ORDER BY id ASC;"
     pg_curr.execute(query)
     rows = pg_curr.fetchall()
     
+    # NFR-PERF-08: keys with a null value for these 3 low-coverage columns
+    # (~15-23%) are OMITTED rather than serialized as `"ipa":null,` -- that
+    # per-row overhead across all 110k+ entries alone pushed the export past
+    # the +15% size cap (measured 20.76% with the key always present vs
+    # 14.72% sparse, see docs/SPRINT_CHECKLIST.md S10-05 bukti). The client
+    # never notices: an absent key reads as `undefined`, same falsy check as
+    # `null` (entry.ipa && ...). Existing columns are untouched -- this is
+    # scoped to only the 3 new low-coverage fields, not a general format change.
+    SPARSE_IF_NULL = {"ipa", "etymology", "hyphenation"}
+
     # Convert to list of dicts
     data = []
     for r in rows:
         entry = {}
         for idx, col in enumerate(columns):
             val = r[idx]
+            if val is None and col in SPARSE_IF_NULL:
+                continue
             entry[col] = val
         data.append(entry)
         

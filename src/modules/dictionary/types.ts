@@ -22,4 +22,7 @@ export interface DictionaryEntry {
   level: 'A1' | 'A2' | 'B1' | null
   theme_tags: string[] | null
   frequency_rank: number | null
+  ipa: string | null
+  etymology: string | null
+  hyphenation: string | null
 }
