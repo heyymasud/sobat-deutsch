@@ -2,9 +2,9 @@ import React, { useState, useEffect } from 'react'
 import { supabase } from '../../../core/api/supabaseClient'
 
 const STATUS_STYLE: Record<string, string> = {
-  pending: 'bg-amber-50 text-amber-700 border-amber-200',
+  pending: 'bg-warning-soft text-warning border-warning',
   approved: 'bg-emerald-50 text-emerald-700 border-emerald-200',
-  rejected: 'bg-red-50 text-red-700 border-red-200',
+  rejected: 'bg-danger-soft text-danger border-danger',
 }
 
 const STATUS_LABEL: Record<string, string> = {
@@ -41,11 +41,11 @@ export const MySuggestions: React.FC = () => {
     return () => { cancelled = true }
   }, [])
 
-  if (loading) return <div className="text-sm text-gray-500 py-6 text-center">Memuat riwayat usulan...</div>
+  if (loading) return <div className="text-sm text-ink-muted py-6 text-center">Memuat riwayat usulan...</div>
 
   if (suggestions.length === 0) {
     return (
-      <div className="text-sm text-gray-400 italic text-center py-8 bg-white border border-dashed rounded-xl">
+      <div className="text-sm text-ink-faint italic text-center py-8 bg-surface border border-dashed rounded-xl">
         Anda belum pernah mengajukan usulan koreksi kata.
       </div>
     )
@@ -57,24 +57,24 @@ export const MySuggestions: React.FC = () => {
         const lemma = s.dictionary?.lemma
         const displayLemma = lemma ? lemma.charAt(0).toUpperCase() + lemma.slice(1) : '(kata dihapus)'
         return (
-          <div key={s.id} className="bg-white border rounded-xl p-4 shadow-xs flex flex-col gap-2 text-left">
+          <div key={s.id} className="card p-5 flex flex-col gap-2 text-left">
             <div className="flex justify-between items-start">
               <div>
-                <h3 className="font-bold text-gray-900 text-sm">
-                  {displayLemma} <span className="text-xs font-semibold text-gray-400">({s.dictionary?.pos?.toUpperCase()})</span>
+                <h3 className="font-bold text-ink text-sm">
+                  {displayLemma} <span className="text-xs font-semibold text-ink-faint">({s.dictionary?.pos?.toUpperCase()})</span>
                 </h3>
-                <p className="text-xs text-gray-400">{new Date(s.created_at).toLocaleString()}</p>
+                <p className="text-xs text-ink-faint">{new Date(s.created_at).toLocaleString()}</p>
               </div>
-              <span className={`text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 border rounded-full ${STATUS_STYLE[s.status] || STATUS_STYLE.pending}`}>
+              <span className={`text-xs uppercase font-bold tracking-wider px-2 py-0.5 border rounded-full ${STATUS_STYLE[s.status] || STATUS_STYLE.pending}`}>
                 {STATUS_LABEL[s.status] || s.status}
               </span>
             </div>
-            <div className="text-xs bg-gray-50 p-2 rounded border border-gray-150">
-              <span className="text-gray-500 font-semibold uppercase">{s.field_name}: </span>
-              <span className="text-gray-800 italic">"{s.suggested_value || '(kosong)'}"</span>
+            <div className="text-xs bg-surface-muted p-2 rounded border border-border">
+              <span className="text-ink-muted font-semibold uppercase">{s.field_name}: </span>
+              <span className="text-ink italic">"{s.suggested_value || '(kosong)'}"</span>
             </div>
             {s.status === 'rejected' && s.note && (
-              <div className="text-xs bg-red-50 text-red-700 p-2 rounded border border-red-100">
+              <div className="text-xs bg-danger-soft text-danger p-2 rounded border border-red-100">
                 <span className="font-semibold">Alasan penolakan: </span>{s.note}
               </div>
             )}

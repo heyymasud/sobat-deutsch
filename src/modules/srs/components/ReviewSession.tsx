@@ -391,8 +391,8 @@ export const ReviewSession: React.FC<ReviewSessionProps> = ({ deckId, onFinish }
 
   if (loading) {
     return (
-      <div className="flex justify-center items-center py-20 text-gray-500">
-        <svg className="animate-spin h-8 w-8 text-indigo-600 mr-2" fill="none" viewBox="0 0 24 24">
+      <div className="flex justify-center items-center py-20 text-ink-muted">
+        <svg className="animate-spin h-8 w-8 text-brand mr-2" fill="none" viewBox="0 0 24 24">
           <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
           <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
         </svg>
@@ -403,7 +403,7 @@ export const ReviewSession: React.FC<ReviewSessionProps> = ({ deckId, onFinish }
 
   if (errorMsg) {
     return (
-      <div className="bg-red-50 text-red-700 p-4 rounded-lg border border-red-200 my-6 max-w-xl mx-auto text-left">
+      <div className="p-4 rounded-xl border max-w-xl mx-auto text-left text-danger bg-danger-soft border-danger">
         {errorMsg}
       </div>
     )
@@ -412,27 +412,25 @@ export const ReviewSession: React.FC<ReviewSessionProps> = ({ deckId, onFinish }
   // S9-06 (AC-SRS-09, FR-SRS-15): layar ringkasan sesi sungguhan setelah kartu terakhir dinilai.
   if (summary) {
     return (
-      <div className="max-w-md mx-auto my-6 px-4 text-center">
-        <div className="bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-800 rounded-2xl shadow-md p-8">
-          <h2 className="text-2xl font-bold text-gray-800 dark:text-slate-100 mb-6">Sesi Selesai!</h2>
+      <div className="max-w-md mx-auto text-center">
+        <div className="card p-8">
+          <div className="stat-figure text-success text-4xl mb-3">{Math.round(summary.accuracy * 100)}%</div>
+          <h2 className="font-display text-2xl font-bold text-ink mb-6">Sesi Selesai!</h2>
           <div className="grid grid-cols-1 gap-4 text-left mb-6">
-            <div className="flex justify-between items-center border-b dark:border-slate-800 pb-2">
-              <span className="text-sm text-gray-500 dark:text-gray-400">Kartu direview</span>
-              <span className="text-lg font-bold text-gray-900 dark:text-slate-100">{summary.reviewed}</span>
+            <div className="flex justify-between items-center border-b border-border pb-2">
+              <span className="text-sm text-ink-muted">Kartu direview</span>
+              <span className="stat-figure text-brand text-lg">{summary.reviewed}</span>
             </div>
-            <div className="flex justify-between items-center border-b dark:border-slate-800 pb-2">
-              <span className="text-sm text-gray-500 dark:text-gray-400">Akurasi</span>
-              <span className="text-lg font-bold text-indigo-600 dark:text-indigo-400">{Math.round(summary.accuracy * 100)}%</span>
+            <div className="flex justify-between items-center border-b border-border pb-2">
+              <span className="text-sm text-ink-muted">Akurasi</span>
+              <span className="stat-figure text-success text-lg">{Math.round(summary.accuracy * 100)}%</span>
             </div>
             <div className="flex justify-between items-center">
-              <span className="text-sm text-gray-500 dark:text-gray-400">Jadwal berikutnya</span>
-              <span className="text-lg font-bold text-gray-900 dark:text-slate-100">{summary.dueTomorrow} kartu besok</span>
+              <span className="text-sm text-ink-muted">Jadwal berikutnya</span>
+              <span className="text-lg font-display font-bold text-ink">{summary.dueTomorrow} kartu besok</span>
             </div>
           </div>
-          <button
-            onClick={handleSummaryDone}
-            className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold h-[48px] rounded-xl transition shadow-sm text-sm"
-          >
+          <button onClick={handleSummaryDone} className="btn-primary w-full h-12 text-sm">
             Kembali ke Manajemen Deck
           </button>
         </div>
@@ -443,12 +441,10 @@ export const ReviewSession: React.FC<ReviewSessionProps> = ({ deckId, onFinish }
   if (queue.length === 0) {
     return (
       <div className="text-center py-20 max-w-md mx-auto">
-        <h2 className="text-2xl font-bold text-gray-800 dark:text-slate-100 mb-2">Semua Kartu Bersih!</h2>
-        <p className="text-gray-500 dark:text-gray-400 mb-6">Tidak ada kartu yang due untuk dipelajari di deck ini hari ini.</p>
-        <button
-          onClick={onFinish}
-          className="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold px-6 py-2.5 rounded-lg transition"
-        >
+        <div className="stat-figure text-success text-4xl mb-3 tracking-widest">00</div>
+        <h2 className="font-display text-2xl font-bold text-ink mb-2">Semua Kartu Bersih!</h2>
+        <p className="text-ink-muted mb-6">Tidak ada kartu yang due untuk dipelajari di deck ini hari ini.</p>
+        <button onClick={onFinish} className="btn-primary">
           Kembali ke Manajemen Deck
         </button>
       </div>
@@ -463,37 +459,37 @@ export const ReviewSession: React.FC<ReviewSessionProps> = ({ deckId, onFinish }
       case 'gender':
         return (
           <div className="text-center">
-            <div className="text-sm uppercase text-gray-400 font-semibold mb-2">Tentukan Artikel Gender</div>
-            <div className="text-4xl font-extrabold text-gray-900 dark:text-slate-100 tracking-tight">{word.lemma}</div>
+            <div className="text-sm uppercase text-ink-faint font-semibold mb-2">Tentukan Artikel Gender</div>
+            <div className="font-display text-4xl font-extrabold text-ink tracking-tight">{word.lemma}</div>
           </div>
         )
       case 'plural':
         return (
           <div className="text-center">
-            <div className="text-sm uppercase text-gray-400 font-semibold mb-2">Tentukan Bentuk Plural</div>
-            <div className="text-4xl font-extrabold text-gray-900 dark:text-slate-100 tracking-tight">die {word.lemma}</div>
+            <div className="text-sm uppercase text-ink-faint font-semibold mb-2">Tentukan Bentuk Plural</div>
+            <div className="font-display text-4xl font-extrabold text-ink tracking-tight">die {word.lemma}</div>
           </div>
         )
       case 'cloze-kasus':
         return (
           <div className="text-center">
-            <div className="text-sm uppercase text-gray-400 font-semibold mb-2">Tebak Preposisi & Kasus Penyerta</div>
-            <div className="text-3xl font-extrabold text-gray-900 dark:text-slate-100 tracking-tight">{word.lemma} (...)</div>
+            <div className="text-sm uppercase text-ink-faint font-semibold mb-2">Tebak Preposisi & Kasus Penyerta</div>
+            <div className="font-display text-3xl font-extrabold text-ink tracking-tight">{word.lemma} (...)</div>
           </div>
         )
       case 'konjugasi':
         return (
           <div className="text-center">
-            <div className="text-sm uppercase text-gray-400 font-semibold mb-2">Sebutkan Konjugasi Präsens</div>
-            <div className="text-3xl font-extrabold text-gray-900 dark:text-slate-100 tracking-tight">{word.lemma}</div>
+            <div className="text-sm uppercase text-ink-faint font-semibold mb-2">Sebutkan Konjugasi Präsens</div>
+            <div className="font-display text-3xl font-extrabold text-ink tracking-tight">{word.lemma}</div>
           </div>
         )
       case 'arti':
       default:
         return (
           <div className="text-center">
-            <div className="text-sm uppercase text-gray-400 font-semibold mb-2">Apa arti kata ini?</div>
-            <div className="text-4xl font-extrabold text-gray-900 dark:text-slate-100 tracking-tight">{word.lemma}</div>
+            <div className="text-sm uppercase text-ink-faint font-semibold mb-2">Apa arti kata ini?</div>
+            <div className="font-display text-4xl font-extrabold text-ink tracking-tight">{word.lemma}</div>
           </div>
         )
     }
@@ -505,22 +501,22 @@ export const ReviewSession: React.FC<ReviewSessionProps> = ({ deckId, onFinish }
         const genderArticle = word.gender === 'm' ? 'der' : word.gender === 'f' ? 'die' : word.gender === 'n' ? 'das' : 'N/A'
         return (
           <div className="text-center">
-            <div className="text-sm uppercase text-gray-400 font-semibold mb-2">Artikel:</div>
-            <div className="text-3xl font-extrabold text-indigo-600 dark:text-indigo-400">{genderArticle} {word.lemma}</div>
+            <div className="text-sm uppercase text-ink-faint font-semibold mb-2">Artikel:</div>
+            <div className="stat-figure text-brand text-3xl">{genderArticle} {word.lemma}</div>
           </div>
         )
       case 'plural':
         return (
           <div className="text-center">
-            <div className="text-sm uppercase text-gray-400 font-semibold mb-2">Bentuk Plural:</div>
-            <div className="text-3xl font-extrabold text-indigo-600 dark:text-indigo-400">die {word.plural || 'data tidak tersedia'}</div>
+            <div className="text-sm uppercase text-ink-faint font-semibold mb-2">Bentuk Plural:</div>
+            <div className="stat-figure text-brand text-3xl">die {word.plural || 'data tidak tersedia'}</div>
           </div>
         )
       case 'cloze-kasus':
         return (
           <div className="text-center">
-            <div className="text-sm uppercase text-gray-400 font-semibold mb-2">Kasus Penyerta (Governance):</div>
-            <div className="text-2xl font-extrabold text-indigo-600 dark:text-indigo-400">
+            <div className="text-sm uppercase text-ink-faint font-semibold mb-2">Kasus Penyerta (Governance):</div>
+            <div className="stat-figure text-brand text-2xl">
               {word.case_governance && word.case_governance.length > 0
                 ? word.case_governance.join(', ')
                 : 'tidak tersedia'}
@@ -530,18 +526,18 @@ export const ReviewSession: React.FC<ReviewSessionProps> = ({ deckId, onFinish }
       case 'konjugasi':
         return (
           <div className="text-center">
-            <div className="text-sm uppercase text-gray-400 font-semibold mb-2">Konjugasi Kata Kerja:</div>
+            <div className="text-sm uppercase text-ink-faint font-semibold mb-2">Konjugasi Kata Kerja:</div>
             {word.conjugation_table?.['praesens'] ? (
-              <div className="grid grid-cols-2 gap-2 text-xs text-left max-w-xs mx-auto bg-gray-50 dark:bg-slate-900 p-3 rounded-lg border dark:border-slate-800">
+              <div className="grid grid-cols-2 gap-2 text-xs text-left max-w-xs mx-auto bg-surface p-3 rounded-xl border border-border">
                 {Object.entries(word.conjugation_table['praesens']).map(([person, form]) => (
-                  <div key={person} className="flex justify-between border-b dark:border-slate-850 pb-1">
-                    <span className="text-gray-400">{person}</span>
-                    <span className="font-bold text-indigo-700 dark:text-indigo-400">{form as string}</span>
+                  <div key={person} className="flex justify-between border-b border-border pb-1">
+                    <span className="text-ink-faint">{person}</span>
+                    <span className="font-display font-bold text-brand">{form as string}</span>
                   </div>
                 ))}
               </div>
             ) : (
-              <div className="text-gray-500 italic">data konjugasi tidak tersedia</div>
+              <div className="text-ink-faint italic">data konjugasi tidak tersedia</div>
             )}
           </div>
         )
@@ -554,22 +550,23 @@ export const ReviewSession: React.FC<ReviewSessionProps> = ({ deckId, onFinish }
         const isVerb = word.pos?.toLowerCase() === 'verb'
         return (
           <div className="text-center px-4">
-            <div className="text-sm uppercase text-gray-400 font-semibold mb-2">Terjemahan:</div>
-            <div className="text-xl font-bold text-gray-900 dark:text-slate-100 leading-relaxed mb-4">{word.translations}</div>
+            <div className="text-sm uppercase text-ink-faint font-semibold mb-2">Terjemahan:</div>
+            <div className="text-xl font-display font-bold text-ink leading-relaxed mb-4">{word.translations}</div>
             {word.example ? (
-              <div className="mt-4 p-3 bg-gray-50 dark:bg-slate-900 border-l-4 border-indigo-500 rounded-r-lg italic text-left text-sm text-gray-700 dark:text-slate-300">
-                {word.example}
+              <div className="mt-4 card p-3 text-left">
+                <div className="badge mb-1.5 !text-xs">Contoh</div>
+                <p className="italic text-sm text-ink-muted">{word.example}</p>
               </div>
             ) : isVerb ? (
-              <div className="mt-4 p-3 bg-gray-50 dark:bg-slate-900 border-l-4 border-gray-300 dark:border-slate-700 rounded-r-lg italic text-left text-sm text-gray-400">
+              <div className="mt-4 card p-3 italic text-left text-sm text-ink-faint">
                 Contoh kalimat belum tersedia
               </div>
             ) : null}
 
             {/* S9-05 (AC-SRS-07, BR-SRS-07): Pattern Drill hanya SEKALI per ablaut_class baru */}
             {isVerb && shouldShowPatternDrill(word.ablaut_class, seenAblautClasses) && (
-              <div className="mt-4 p-3 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900 rounded-lg text-left text-xs text-amber-900 dark:text-amber-300">
-                💡 **Pattern Drill (Ablaut)**: Kata kerja ini mengikuti pola perubahan kelas **{word.ablaut_class}**.
+              <div className="mt-4 p-3 rounded-xl text-left text-xs text-warning bg-warning-soft">
+                Pattern Drill (Ablaut): Kata kerja ini mengikuti pola perubahan kelas <strong>{word.ablaut_class}</strong>.
               </div>
             )}
           </div>
@@ -579,94 +576,89 @@ export const ReviewSession: React.FC<ReviewSessionProps> = ({ deckId, onFinish }
   };
 
   return (
-    <div className="max-w-xl mx-auto my-6 px-4">
+    <div className="max-w-xl mx-auto">
       {/* Progress header */}
-      <div className="flex justify-between items-center text-xs text-gray-400 mb-4">
+      <div className="flex justify-between items-center text-xs text-ink-faint mb-4">
         <span>Sesi Belajar Deck</span>
-        <span>Kartu {currentIndex + 1} dari {queue.length}</span>
+        <span className="stat-figure text-brand">{currentIndex + 1}/{queue.length}</span>
       </div>
 
       {/* Progress bar */}
-      <div className="w-full bg-gray-200 dark:bg-slate-800 h-2 rounded-full overflow-hidden mb-6">
+      <div className="w-full bg-surface-muted h-1.5 rounded-full overflow-hidden mb-8">
         <div
-          className="bg-indigo-600 h-2 transition-all duration-300"
+          className="h-full bg-ink transition-all duration-300"
           style={{ width: `${((currentIndex + 1) / queue.length) * 100}%` }}
         ></div>
       </div>
 
       {/* Flashcard container */}
-      <div className="bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-800 rounded-2xl shadow-md min-h-[300px] flex flex-col justify-between p-8 mb-6 relative">
-        {/* Top right actions */}
-        <div className="flex justify-between items-center">
-          <button
-            onClick={handleSuspend}
-            className="text-xs font-semibold text-gray-400 hover:text-red-500 transition min-h-[44px] px-2 flex items-center"
-            title="Tangguhkan kartu ini"
-          >
-            [ Tangguhkan ]
-          </button>
-
-          <button
-            onClick={() => handlePlayAudio(word.lemma)}
-            className="p-1.5 rounded-full hover:bg-gray-100 dark:hover:bg-slate-800 text-gray-400 hover:text-indigo-600 transition min-w-[44px] min-h-[44px] flex items-center justify-center"
-            title="Dengarkan pengucapan"
-            aria-label="Putar pengucapan"
-          >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" />
-            </svg>
-          </button>
-        </div>
-
-        {/* Card Face */}
-        <div className="flex-1 flex flex-col justify-center my-6">
-          {!showAnswer ? getQuestion() : getAnswer()}
-        </div>
-
-        {/* Action button / Rating buttons */}
-        <div className="mt-8">
-          {!showAnswer ? (
-            <button
-              onClick={() => {
-                setShowAnswer(true)
-                handlePlayAudio(word.lemma)
-              }}
-              className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold h-[48px] rounded-xl transition shadow-sm text-sm"
-            >
-              Tampilkan Jawaban (Spasi)
-            </button>
-          ) : (
-            <div className="grid grid-cols-4 gap-2">
+      <div
+        className="flip-card"
+        onClick={() => {
+          if (showAnswer) return
+          setShowAnswer(true)
+          handlePlayAudio(word.lemma)
+        }}
+      >
+        <div className={`flip-inner relative min-h-96 w-full ${showAnswer ? 'flipped cursor-default' : 'cursor-pointer'}`}>
+          {/* front */}
+          <div className="flip-face card flex flex-col p-6 md:p-8">
+            <div className="flex justify-between items-center shrink-0">
               <button
-                onClick={() => handleRating(1)}
-                className="bg-red-50 dark:bg-red-950/20 hover:bg-red-500 hover:text-white text-red-700 dark:text-red-400 border border-red-200 dark:border-red-900/50 h-[48px] rounded-xl text-xs font-bold transition flex flex-col justify-center items-center"
+                onClick={(e) => { e.stopPropagation(); handleSuspend() }}
+                className="text-xs font-semibold text-ink-faint hover:text-danger transition"
+                title="Tangguhkan kartu ini"
               >
-                Lagi (1)
-                <span className="block font-normal text-[9px] opacity-70">1h</span>
+                Tangguhkan
               </button>
               <button
-                onClick={() => handleRating(2)}
-                className="bg-amber-50 dark:bg-amber-950/20 hover:bg-amber-500 hover:text-white text-amber-700 dark:text-amber-400 border border-amber-200 dark:border-amber-900/50 h-[48px] rounded-xl text-xs font-bold transition flex flex-col justify-center items-center"
+                onClick={(e) => { e.stopPropagation(); handlePlayAudio(word.lemma) }}
+                className="grid h-9 w-9 place-items-center rounded-full hover:bg-surface-muted text-ink-faint hover:text-brand transition-colors"
+                title="Dengarkan pengucapan"
+                aria-label="Putar pengucapan"
               >
-                Keras (2)
-                <span className="block font-normal text-[9px] opacity-70">1d</span>
-              </button>
-              <button
-                onClick={() => handleRating(3)}
-                className="bg-indigo-50 dark:bg-indigo-950/20 hover:bg-indigo-650 hover:text-white text-indigo-700 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-900/50 h-[48px] rounded-xl text-xs font-bold transition flex flex-col justify-center items-center"
-              >
-                Baik (3)
-                <span className="block font-normal text-[9px] opacity-70">4d</span>
-              </button>
-              <button
-                onClick={() => handleRating(4)}
-                className="bg-green-50 dark:bg-green-950/20 hover:bg-green-600 hover:text-white text-green-700 dark:text-green-400 border border-green-200 dark:border-green-900/50 h-[48px] rounded-xl text-xs font-bold transition flex flex-col justify-center items-center"
-              >
-                Mudah (4)
-                <span className="block font-normal text-[9px] opacity-70">8d</span>
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" />
+                </svg>
               </button>
             </div>
-          )}
+            <div className="flex-1 min-h-0 overflow-y-auto flex flex-col justify-center py-4">{getQuestion()}</div>
+            <p className="text-center text-xs text-ink-faint shrink-0">ketuk untuk lihat jawaban (spasi)</p>
+          </div>
+          {/* back */}
+          <div className="flip-face flip-back card flex flex-col p-6 md:p-8">
+            <div className="flex-1 min-h-0 overflow-y-auto flex flex-col justify-center py-2">{getAnswer()}</div>
+            <div className="grid grid-cols-4 gap-2 mt-4 shrink-0">
+              <button
+                onClick={(e) => { e.stopPropagation(); handleRating(1) }}
+                className="h-14 rounded-xl text-xs font-bold transition-transform active:scale-95 flex flex-col justify-center items-center text-white bg-danger"
+              >
+                Lagi
+                <span className="block font-normal text-xs opacity-80">1h</span>
+              </button>
+              <button
+                onClick={(e) => { e.stopPropagation(); handleRating(2) }}
+                className="h-14 rounded-xl text-xs font-bold transition-transform active:scale-95 flex flex-col justify-center items-center text-ink bg-gender-p"
+              >
+                Keras
+                <span className="block font-normal text-xs opacity-80">1d</span>
+              </button>
+              <button
+                onClick={(e) => { e.stopPropagation(); handleRating(3) }}
+                className="h-14 rounded-xl text-xs font-bold transition-transform active:scale-95 flex flex-col justify-center items-center text-white bg-brand"
+              >
+                Baik
+                <span className="block font-normal text-xs opacity-80">4d</span>
+              </button>
+              <button
+                onClick={(e) => { e.stopPropagation(); handleRating(4) }}
+                className="h-14 rounded-xl text-xs font-bold transition-transform active:scale-95 flex flex-col justify-center items-center text-white bg-success"
+              >
+                Mudah
+                <span className="block font-normal text-xs opacity-80">8d</span>
+              </button>
+            </div>
+          </div>
         </div>
       </div>
     </div>

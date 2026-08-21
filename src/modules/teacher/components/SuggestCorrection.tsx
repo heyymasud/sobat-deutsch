@@ -95,29 +95,29 @@ export const SuggestCorrection: React.FC<SuggestCorrectionProps> = ({ entry, onC
   };
 
   return (
-    <div className="bg-white border rounded-2xl p-6 text-left max-w-lg w-full mx-auto my-4 shadow-lg">
-      <h2 className="text-xl font-bold text-gray-900 mb-4">Ajukan Koreksi Kata</h2>
-      <p className="text-xs text-gray-400 mb-4">
-        Usulkan perubahan makna atau tata bahasa untuk kata <strong className="text-gray-800">"{entry.lemma}"</strong>.
+    <div className="bg-surface border rounded-2xl p-6 text-left max-w-lg w-full mx-auto my-4 shadow-lg">
+      <h2 className="text-xl font-bold text-ink mb-4">Ajukan Koreksi Kata</h2>
+      <p className="text-xs text-ink-faint mb-4">
+        Usulkan perubahan makna atau tata bahasa untuk kata <strong className="text-ink">"{entry.lemma}"</strong>.
       </p>
 
       {errorMsg && (
-        <div className="bg-red-50 text-red-700 p-3 rounded-lg border border-red-200 text-xs mb-4">
+        <div className="bg-danger-soft text-danger p-3 rounded-xl border border-danger text-xs mb-4">
           {errorMsg}
         </div>
       )}
 
       {successMsg && (
-        <div className="bg-green-50 text-green-700 p-3 rounded-lg border border-green-200 text-xs mb-4">
+        <div className="bg-success-soft text-success p-3 rounded-xl border border-success text-xs mb-4">
           {successMsg}
         </div>
       )}
 
       <form onSubmit={handleSubmit} className="flex flex-col gap-4">
         <div>
-          <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">Terjemahan</label>
+          <label className="block text-xs font-semibold text-ink-muted uppercase mb-1">Terjemahan</label>
           <textarea
-            className="w-full bg-white text-gray-950 border border-gray-300 rounded-lg px-3 py-2 text-xs focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+            className="w-full field-input text-xs"
             value={translations}
             onChange={(e) => setTranslations(e.target.value)}
             disabled={loading}
@@ -129,9 +129,9 @@ export const SuggestCorrection: React.FC<SuggestCorrectionProps> = ({ entry, onC
         {isNoun && (
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">Gender</label>
+              <label className="block text-xs font-semibold text-ink-muted uppercase mb-1">Gender</label>
               <select
-                className="w-full bg-white text-gray-950 border border-gray-300 rounded-lg p-2 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                className="w-full field-input text-xs"
                 value={gender}
                 onChange={(e) => setGender(e.target.value)}
                 disabled={loading}
@@ -143,10 +143,10 @@ export const SuggestCorrection: React.FC<SuggestCorrectionProps> = ({ entry, onC
               </select>
             </div>
             <div>
-              <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">Plural</label>
+              <label className="block text-xs font-semibold text-ink-muted uppercase mb-1">Plural</label>
               <input
                 type="text"
-                className="w-full bg-white text-gray-950 border border-gray-300 rounded-lg px-3 py-2 text-xs focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                className="w-full field-input text-xs"
                 value={plural}
                 onChange={(e) => setPlural(e.target.value)}
                 disabled={loading}
@@ -156,9 +156,9 @@ export const SuggestCorrection: React.FC<SuggestCorrectionProps> = ({ entry, onC
         )}
 
         <div>
-          <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">Kalimat Contoh</label>
+          <label className="block text-xs font-semibold text-ink-muted uppercase mb-1">Kalimat Contoh</label>
           <textarea
-            className="w-full bg-white text-gray-950 border border-gray-300 rounded-lg px-3 py-2 text-xs focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+            className="w-full field-input text-xs"
             value={example}
             onChange={(e) => setExample(e.target.value)}
             disabled={loading}
@@ -167,9 +167,9 @@ export const SuggestCorrection: React.FC<SuggestCorrectionProps> = ({ entry, onC
         </div>
 
         <div>
-          <label className="block text-xs font-semibold text-gray-500 uppercase mb-1 text-red-600">Alasan Koreksi (Wajib)</label>
+          <label className="block text-xs font-semibold text-ink-muted uppercase mb-1">Alasan Koreksi (Wajib)</label>
           <textarea
-            className="w-full bg-white text-gray-950 border border-red-300 rounded-lg px-3 py-2 text-xs focus:ring-2 focus:ring-red-500 focus:outline-none"
+            className="w-full field-input text-xs"
             value={reason}
             onChange={(e) => setReason(e.target.value)}
             placeholder="Tulis alasan atau referensi mengapa informasi kata ini salah..."
@@ -183,14 +183,14 @@ export const SuggestCorrection: React.FC<SuggestCorrectionProps> = ({ entry, onC
           <button
             type="button"
             onClick={onClose}
-            className="px-4 py-2 border rounded-lg hover:bg-gray-50 text-gray-600 transition text-xs"
+            className="px-4 py-2 border rounded-xl hover:bg-surface-muted text-ink-muted transition text-xs"
           >
             Batal
           </button>
           <button
             type="submit"
             disabled={loading}
-            className="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold px-4 py-2 rounded-lg transition shadow-sm text-xs"
+            className="btn-primary text-xs"
           >
             Ajukan Koreksi
           </button>

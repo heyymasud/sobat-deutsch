@@ -164,21 +164,21 @@ export const AdminConsole: React.FC = () => {
 
   return (
     <div className="max-w-4xl mx-auto my-6 px-4 text-left">
-      <h1 className="text-3xl font-extrabold text-gray-900 mb-6">Panel Admin</h1>
+      <h1 className="text-3xl font-extrabold text-ink mb-6">Panel Admin</h1>
 
       {needsReexport && (
-        <div className="mb-6 text-xs font-semibold text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-4 py-2">
+        <div className="mb-6 text-xs font-semibold text-warning bg-warning-soft border border-warning rounded-xl px-4 py-2">
           Ada perubahan kamus yang disetujui sejak ekspor terakhir. Jalankan{' '}
           <code className="bg-amber-100 px-1 rounded">scripts/export_dictionary_full.py</code> untuk mempublikasikan versi baru.
         </div>
       )}
 
       {/* Sub Tabs */}
-      <div className="flex gap-4 border-b border-gray-200 pb-3 mb-6">
+      <div className="flex gap-4 border-b border-border pb-3 mb-6">
         <button
           onClick={() => setActiveSubTab('applications')}
           className={`pb-1 text-sm font-semibold transition ${
-            activeSubTab === 'applications' ? 'text-indigo-600 border-b-2 border-indigo-600' : 'text-gray-500 hover:text-indigo-600'
+            activeSubTab === 'applications' ? 'text-brand border-b-2 border-brand' : 'text-ink-muted hover:text-brand'
           }`}
         >
           Permohonan Pengajar ({applications.length})
@@ -186,7 +186,7 @@ export const AdminConsole: React.FC = () => {
         <button
           onClick={() => setActiveSubTab('suggestions')}
           className={`pb-1 text-sm font-semibold transition ${
-            activeSubTab === 'suggestions' ? 'text-indigo-600 border-b-2 border-indigo-600' : 'text-gray-500 hover:text-indigo-600'
+            activeSubTab === 'suggestions' ? 'text-brand border-b-2 border-brand' : 'text-ink-muted hover:text-brand'
           }`}
         >
           Koreksi Kamus ({suggestions.length})
@@ -194,40 +194,40 @@ export const AdminConsole: React.FC = () => {
         <button
           onClick={() => setActiveSubTab('reports')}
           className={`pb-1 text-sm font-semibold transition ${
-            activeSubTab === 'reports' ? 'text-indigo-600 border-b-2 border-indigo-600' : 'text-gray-500 hover:text-indigo-600'
+            activeSubTab === 'reports' ? 'text-brand border-b-2 border-brand' : 'text-ink-muted hover:text-brand'
           }`}
         >
           Laporan Kata ({reports.length})
         </button>
       </div>
 
-      {loading && <div className="text-sm text-gray-500 py-6 text-center">Memuat data...</div>}
+      {loading && <div className="text-sm text-ink-muted py-6 text-center">Memuat data...</div>}
 
       {!loading && activeSubTab === 'applications' && (
         <div className="flex flex-col gap-4">
           {applications.length === 0 ? (
-            <div className="text-sm text-gray-400 italic text-center py-8 bg-white border border-dashed rounded-xl">
+            <div className="text-sm text-ink-faint italic text-center py-8 bg-surface border border-dashed rounded-xl">
               Tidak ada permohonan pengajar yang sedang pending.
             </div>
           ) : (
             applications.map((app) => (
-              <div key={app.id} className="bg-white border rounded-xl p-5 shadow-xs flex flex-col gap-3">
+              <div key={app.id} className="card p-6 flex flex-col gap-3">
                 <div className="flex justify-between items-start">
                   <div>
-                    <h3 className="font-bold text-gray-900">{app.profiles?.display_name || 'Tanpa Nama'}</h3>
-                    <p className="text-xs text-gray-400">Diminta pada: {new Date(app.created_at).toLocaleString()}</p>
+                    <h3 className="font-bold text-ink">{app.profiles?.display_name || 'Tanpa Nama'}</h3>
+                    <p className="text-xs text-ink-faint">Diminta pada: {new Date(app.created_at).toLocaleString()}</p>
                   </div>
-                  <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 bg-amber-50 text-amber-700 border border-amber-200 rounded-full">
+                  <span className="text-xs uppercase font-bold tracking-wider px-2 py-0.5 bg-warning-soft text-warning border border-warning rounded-full">
                     Pending
                   </span>
                 </div>
                 
                 <div>
-                  <label className="block text-xs font-semibold text-gray-400 mb-1">Catatan/Alasan Tambahan (Opsional)</label>
+                  <label className="block text-xs font-semibold text-ink-faint mb-1">Catatan/Alasan Tambahan (Opsional)</label>
                   <input
                     type="text"
                     placeholder="Tulis umpan balik atau alasan jika ditolak..."
-                    className="w-full bg-white text-gray-950 border border-gray-300 rounded-lg px-3 py-1.5 text-xs focus:ring-1 focus:ring-indigo-500 focus:outline-none"
+                    className="w-full field-input text-xs !py-1.5"
                     onChange={(e) => setNote(e.target.value)}
                   />
                 </div>
@@ -235,13 +235,13 @@ export const AdminConsole: React.FC = () => {
                 <div className="flex gap-2 justify-end">
                   <button
                     onClick={() => handleReviewApplication(app.id, 'reject')}
-                    className="bg-red-50 hover:bg-red-100 text-red-700 font-semibold px-4 py-1.5 rounded-lg text-xs transition border border-red-200"
+                    className="bg-danger-soft hover:bg-red-100 text-danger font-semibold px-4 py-1.5 rounded-xl text-xs transition border border-danger"
                   >
                     Tolak
                   </button>
                   <button
                     onClick={() => handleReviewApplication(app.id, 'approve')}
-                    className="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold px-4 py-1.5 rounded-lg text-xs transition shadow-sm"
+                    className="btn-primary !py-1.5 !px-3 text-xs"
                   >
                     Setujui
                   </button>
@@ -255,7 +255,7 @@ export const AdminConsole: React.FC = () => {
       {!loading && activeSubTab === 'suggestions' && (
         <div className="flex flex-col gap-4">
           {suggestions.length === 0 ? (
-            <div className="text-sm text-gray-400 italic text-center py-8 bg-white border border-dashed rounded-xl">
+            <div className="text-sm text-ink-faint italic text-center py-8 bg-surface border border-dashed rounded-xl">
               Tidak ada usulan koreksi kamus yang sedang pending.
             </div>
           ) : (
@@ -263,48 +263,48 @@ export const AdminConsole: React.FC = () => {
               const displayLemma = s.dictionary?.lemma?.charAt(0).toUpperCase() + s.dictionary?.lemma?.slice(1)
 
               return (
-                <div key={s.id} className="bg-white border rounded-xl p-5 shadow-xs flex flex-col gap-3">
-                  <div className="flex justify-between items-start border-b border-gray-100 pb-2">
+                <div key={s.id} className="card p-6 flex flex-col gap-3">
+                  <div className="flex justify-between items-start border-b border-border pb-2">
                     <div>
-                      <h3 className="font-bold text-gray-900">
-                        {displayLemma} <span className="text-xs font-semibold text-gray-400">({s.dictionary?.pos?.toUpperCase()})</span>
+                      <h3 className="font-bold text-ink">
+                        {displayLemma} <span className="text-xs font-semibold text-ink-faint">({s.dictionary?.pos?.toUpperCase()})</span>
                       </h3>
-                      <p className="text-xs text-gray-400">
+                      <p className="text-xs text-ink-faint">
                         Diajukan oleh pengajar: <strong>{s.profiles?.display_name}</strong>
                       </p>
                     </div>
-                    <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 bg-amber-50 text-amber-700 border border-amber-200 rounded-full">
+                    <span className="text-xs uppercase font-bold tracking-wider px-2 py-0.5 bg-warning-soft text-warning border border-warning rounded-full">
                       Pending
                     </span>
                   </div>
 
                   <div>
-                    <strong className="text-xs text-gray-500 block mb-1">Koreksi Kolom: <span className="text-indigo-600 dark:text-indigo-400 font-bold uppercase">{s.field_name}</span></strong>
-                    <div className="grid grid-cols-2 gap-4 text-xs bg-gray-50 dark:bg-slate-900 p-3 rounded border border-gray-150 dark:border-slate-800 mb-3">
+                    <strong className="text-xs text-ink-muted block mb-1">Koreksi Kolom: <span className="text-brand  font-bold uppercase">{s.field_name}</span></strong>
+                    <div className="grid grid-cols-2 gap-4 text-xs bg-surface-muted  p-3 rounded border border-border  mb-3">
                       <div>
-                        <span className="text-gray-400 block font-semibold">NILAI SAAT INI:</span>
-                        <span className="text-gray-700 dark:text-slate-350 font-medium italic">"{s.dictionary?.[s.field_name] || '(kosong)'}"</span>
+                        <span className="text-ink-faint block font-semibold">NILAI SAAT INI:</span>
+                        <span className="text-ink-muted font-medium italic">"{s.dictionary?.[s.field_name] || '(kosong)'}"</span>
                       </div>
                       <div>
-                        <span className="text-gray-400 block font-semibold">USULAN BARU:</span>
+                        <span className="text-ink-faint block font-semibold">USULAN BARU:</span>
                         <span className="text-emerald-700 dark:text-emerald-400 font-bold italic">"{s.suggested_value || '(kosong)'}"</span>
                       </div>
                     </div>
-                    <strong className="text-xs text-gray-500 block mb-1">Alasan Pengajar:</strong>
-                    <p className="text-xs text-gray-700 dark:text-slate-300 italic bg-gray-50 dark:bg-slate-900 p-2 rounded border border-gray-150 dark:border-slate-800">
+                    <strong className="text-xs text-ink-muted block mb-1">Alasan Pengajar:</strong>
+                    <p className="text-xs text-ink-muted  italic bg-surface-muted  p-2 rounded border border-border ">
                       "{s.reason_for_change}"
                     </p>
                   </div>
 
                   {reviewingId === s.id ? (
                     /* Suggestions Edit Interface */
-                    <div className="bg-indigo-50/20 p-4 border border-indigo-150 rounded-lg flex flex-col gap-3">
-                      <h4 className="text-xs font-bold text-indigo-900">Ubah & Tinjau Usulan Sebelum Persetujuan</h4>
+                    <div className="bg-brand-soft p-4 border border-brand rounded-xl flex flex-col gap-3">
+                      <h4 className="text-xs font-bold text-brand">Ubah & Tinjau Usulan Sebelum Persetujuan</h4>
                       <div>
-                        <label className="block text-[10px] text-gray-400 uppercase font-semibold">Ubah Nilai Usulan ({s.field_name})</label>
+                        <label className="block text-xs text-ink-faint uppercase font-semibold">Ubah Nilai Usulan ({s.field_name})</label>
                         {s.field_name === 'gender' ? (
                           <select
-                            className="w-full bg-white text-gray-950 border border-gray-300 rounded p-1 text-xs"
+                            className="w-full field-input text-xs"
                             value={editedSuggestedValue}
                             onChange={(e) => setEditedSuggestedValue(e.target.value)}
                           >
@@ -315,7 +315,7 @@ export const AdminConsole: React.FC = () => {
                           </select>
                         ) : (
                           <textarea
-                            className="w-full bg-white text-gray-950 border border-gray-300 rounded px-2 py-1 text-xs focus:outline-none"
+                            className="w-full field-input text-xs !py-1"
                             value={editedSuggestedValue}
                             onChange={(e) => setEditedSuggestedValue(e.target.value)}
                             rows={s.field_name === 'translations' || s.field_name === 'example' ? 2 : 1}
@@ -324,11 +324,11 @@ export const AdminConsole: React.FC = () => {
                       </div>
 
                       <div>
-                        <label className="block text-[10px] text-gray-400 uppercase font-semibold">Catatan Keputusan Admin (Opsional)</label>
+                        <label className="block text-xs text-ink-faint uppercase font-semibold">Catatan Keputusan Admin (Opsional)</label>
                         <input
                           type="text"
                           placeholder="Umpan balik atau catatan untuk log..."
-                          className="w-full bg-white text-gray-950 border border-gray-300 rounded px-2 py-1 text-xs"
+                          className="w-full field-input text-xs !py-1"
                           onChange={(e) => setNote(e.target.value)}
                         />
                       </div>
@@ -336,7 +336,7 @@ export const AdminConsole: React.FC = () => {
                       <div className="flex gap-2 justify-end mt-2">
                         <button
                           onClick={() => setReviewingId(null)}
-                          className="px-3 py-1 border text-xs rounded hover:bg-gray-50 transition"
+                          className="px-3 py-1 border text-xs rounded hover:bg-surface-muted transition"
                         >
                           Batal Edit
                         </button>
@@ -348,7 +348,7 @@ export const AdminConsole: React.FC = () => {
                         </button>
                         <button
                           onClick={() => handleReviewSuggestion(s.id, 'approve')}
-                          className="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold px-3 py-1 rounded text-xs transition"
+                          className="btn-primary !py-1.5 !px-3 text-xs"
                         >
                           Terapkan & Setujui
                         </button>
@@ -359,13 +359,13 @@ export const AdminConsole: React.FC = () => {
                     <div className="flex gap-2 justify-end">
                       <button
                         onClick={() => handleReviewSuggestion(s.id, 'reject')}
-                        className="bg-red-50 hover:bg-red-100 text-red-700 font-semibold px-4 py-1.5 rounded-lg text-xs transition border border-red-200"
+                        className="bg-danger-soft hover:bg-red-100 text-danger font-semibold px-4 py-1.5 rounded-xl text-xs transition border border-danger"
                       >
                         Tolak Langsung
                       </button>
                       <button
                         onClick={() => startEditSuggestion(s)}
-                        className="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold px-4 py-1.5 rounded-lg text-xs transition shadow-sm"
+                        className="btn-primary !py-1.5 !px-3 text-xs"
                       >
                         Tinjau & Setujui
                       </button>
@@ -381,7 +381,7 @@ export const AdminConsole: React.FC = () => {
       {!loading && activeSubTab === 'reports' && (
         <div className="flex flex-col gap-4">
           {reports.length === 0 ? (
-            <div className="text-sm text-gray-400 italic text-center py-8 bg-white border border-dashed rounded-xl">
+            <div className="text-sm text-ink-faint italic text-center py-8 bg-surface border border-dashed rounded-xl">
               Tidak ada laporan kesalahan kata yang sedang pending.
             </div>
           ) : (
@@ -390,31 +390,31 @@ export const AdminConsole: React.FC = () => {
               const displayLemma = lemma ? lemma.charAt(0).toUpperCase() + lemma.slice(1) : '(kata dihapus)'
 
               return (
-                <div key={r.id} className="bg-white border rounded-xl p-5 shadow-xs flex flex-col gap-3">
-                  <div className="flex justify-between items-start border-b border-gray-100 pb-2">
+                <div key={r.id} className="card p-6 flex flex-col gap-3">
+                  <div className="flex justify-between items-start border-b border-border pb-2">
                     <div>
-                      <h3 className="font-bold text-gray-900">
-                        {displayLemma} <span className="text-xs font-semibold text-gray-400">({r.dictionary?.pos?.toUpperCase()})</span>
+                      <h3 className="font-bold text-ink">
+                        {displayLemma} <span className="text-xs font-semibold text-ink-faint">({r.dictionary?.pos?.toUpperCase()})</span>
                       </h3>
-                      <p className="text-xs text-gray-400">Dilaporkan pada: {new Date(r.created_at).toLocaleString()}</p>
+                      <p className="text-xs text-ink-faint">Dilaporkan pada: {new Date(r.created_at).toLocaleString()}</p>
                     </div>
-                    <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 bg-amber-50 text-amber-700 border border-amber-200 rounded-full">
+                    <span className="text-xs uppercase font-bold tracking-wider px-2 py-0.5 bg-warning-soft text-warning border border-warning rounded-full">
                       Pending
                     </span>
                   </div>
 
                   <div>
-                    <strong className="text-xs text-gray-500 block mb-1">Catatan Pelapor:</strong>
-                    <p className="text-xs text-gray-700 italic bg-gray-50 p-2 rounded border border-gray-150">"{r.note}"</p>
+                    <strong className="text-xs text-ink-muted block mb-1">Catatan Pelapor:</strong>
+                    <p className="text-xs text-ink-muted italic bg-surface-muted p-2 rounded border border-border">"{r.note}"</p>
                   </div>
 
                   {editingReportId === r.id ? (
-                    <div className="bg-indigo-50/20 p-4 border border-indigo-150 rounded-lg flex flex-col gap-3">
-                      <h4 className="text-xs font-bold text-indigo-900">Edit Entri Kamus Langsung</h4>
+                    <div className="bg-brand-soft p-4 border border-brand rounded-xl flex flex-col gap-3">
+                      <h4 className="text-xs font-bold text-brand">Edit Entri Kamus Langsung</h4>
                       <div>
-                        <label className="block text-[10px] text-gray-400 uppercase font-semibold">Terjemahan</label>
+                        <label className="block text-xs text-ink-faint uppercase font-semibold">Terjemahan</label>
                         <textarea
-                          className="w-full bg-white text-gray-950 border border-gray-300 rounded px-2 py-1 text-xs"
+                          className="w-full field-input text-xs !py-1"
                           value={reportEditFields.translations}
                           onChange={(e) => setReportEditFields({ ...reportEditFields, translations: e.target.value })}
                           rows={2}
@@ -422,9 +422,9 @@ export const AdminConsole: React.FC = () => {
                       </div>
                       <div className="grid grid-cols-2 gap-3">
                         <div>
-                          <label className="block text-[10px] text-gray-400 uppercase font-semibold">Gender</label>
+                          <label className="block text-xs text-ink-faint uppercase font-semibold">Gender</label>
                           <select
-                            className="w-full bg-white text-gray-950 border border-gray-300 rounded p-1 text-xs"
+                            className="w-full field-input text-xs"
                             value={reportEditFields.gender}
                             onChange={(e) => setReportEditFields({ ...reportEditFields, gender: e.target.value })}
                           >
@@ -435,19 +435,19 @@ export const AdminConsole: React.FC = () => {
                           </select>
                         </div>
                         <div>
-                          <label className="block text-[10px] text-gray-400 uppercase font-semibold">Plural</label>
+                          <label className="block text-xs text-ink-faint uppercase font-semibold">Plural</label>
                           <input
                             type="text"
-                            className="w-full bg-white text-gray-950 border border-gray-300 rounded px-2 py-1 text-xs"
+                            className="w-full field-input text-xs !py-1"
                             value={reportEditFields.plural}
                             onChange={(e) => setReportEditFields({ ...reportEditFields, plural: e.target.value })}
                           />
                         </div>
                       </div>
                       <div>
-                        <label className="block text-[10px] text-gray-400 uppercase font-semibold">Kalimat Contoh</label>
+                        <label className="block text-xs text-ink-faint uppercase font-semibold">Kalimat Contoh</label>
                         <textarea
-                          className="w-full bg-white text-gray-950 border border-gray-300 rounded px-2 py-1 text-xs"
+                          className="w-full field-input text-xs !py-1"
                           value={reportEditFields.example}
                           onChange={(e) => setReportEditFields({ ...reportEditFields, example: e.target.value })}
                           rows={2}
@@ -456,13 +456,13 @@ export const AdminConsole: React.FC = () => {
                       <div className="flex gap-2 justify-end mt-2">
                         <button
                           onClick={() => setEditingReportId(null)}
-                          className="px-3 py-1 border text-xs rounded hover:bg-gray-50 transition"
+                          className="px-3 py-1 border text-xs rounded hover:bg-surface-muted transition"
                         >
                           Batal
                         </button>
                         <button
                           onClick={() => handleApplyReportFix(r)}
-                          className="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold px-3 py-1 rounded text-xs transition"
+                          className="btn-primary !py-1.5 !px-3 text-xs"
                         >
                           Terapkan Perbaikan
                         </button>
@@ -472,13 +472,13 @@ export const AdminConsole: React.FC = () => {
                     <div className="flex gap-2 justify-end">
                       <button
                         onClick={() => handleDismissReport(r.id)}
-                        className="bg-red-50 hover:bg-red-100 text-red-700 font-semibold px-4 py-1.5 rounded-lg text-xs transition border border-red-200"
+                        className="bg-danger-soft hover:bg-red-100 text-danger font-semibold px-4 py-1.5 rounded-xl text-xs transition border border-danger"
                       >
                         Abaikan
                       </button>
                       <button
                         onClick={() => startEditReport(r)}
-                        className="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold px-4 py-1.5 rounded-lg text-xs transition shadow-sm"
+                        className="btn-primary !py-1.5 !px-3 text-xs"
                       >
                         Lihat & Perbaiki
                       </button>

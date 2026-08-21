@@ -201,27 +201,27 @@ export const UserProfile: React.FC<UserProfileProps> = ({ onLogout }) => {
   };
 
   return (
-    <div className="max-w-xl mx-auto my-6 text-left px-4">
-      <h1 className="text-3xl font-bold text-gray-900 mb-6">Pengaturan Akun</h1>
+    <div className="max-w-xl mx-auto text-left">
+      <h1 className="font-display text-2xl font-bold text-ink mb-6">Pengaturan Akun</h1>
 
       {errorMsg && (
-        <div className="bg-red-50 text-red-700 p-3 rounded-lg border border-red-200 mb-4 text-sm">
+        <div className="p-3 rounded-xl border mb-4 text-sm text-danger bg-danger-soft border-danger">
           {errorMsg}
         </div>
       )}
 
       {infoMsg && (
-        <div className="bg-green-50 text-green-700 p-3 rounded-lg border border-green-200 mb-4 text-sm">
+        <div className="p-3 rounded-xl border mb-4 text-sm text-success bg-success-soft border-success">
           {infoMsg}
         </div>
       )}
 
       <div className="flex flex-col gap-6">
         {/* Role Display */}
-        <div className="bg-white border rounded-xl p-5 shadow-sm">
-          <h3 className="text-sm font-semibold text-gray-500 uppercase mb-1">Peran Pengguna</h3>
+        <div className="card p-5">
+          <h3 className="text-sm font-semibold text-ink-faint uppercase mb-1">Peran Pengguna</h3>
           <div className="flex items-center gap-3">
-            <span className="text-lg font-bold text-indigo-700 uppercase">
+            <span className="stat-figure text-brand text-lg">
               {userProfile?.role || 'STUDENT'}
             </span>
           </div>
@@ -229,25 +229,25 @@ export const UserProfile: React.FC<UserProfileProps> = ({ onLogout }) => {
 
         {/* Teacher Application Section (S6-02) */}
         {userProfile?.role === 'student' && (
-          <div className="bg-white border rounded-xl p-5 shadow-sm">
-            <h3 className="text-lg font-bold text-gray-800 mb-2">Program Pengajar (Teacher)</h3>
-            <p className="text-xs text-gray-500 mb-4">
+          <div className="card p-5">
+            <h3 className="font-display text-lg font-bold text-ink mb-2">Program Pengajar (Teacher)</h3>
+            <p className="text-xs text-ink-muted mb-4">
               Menjadi pengajar memungkinkan Anda berkontribusi dengan merekomendasikan koreksi kosakata langsung ke database.
             </p>
 
             {teacherApp?.status === 'pending' ? (
-              <div className="bg-amber-50 text-amber-800 p-3 rounded-lg border border-amber-200 text-xs font-semibold">
-                ⏳ Permohonan Anda sedang ditinjau oleh Admin.
+              <div className="p-3 rounded-xl border text-xs font-semibold text-warning bg-warning-soft border-warning">
+                Permohonan Anda sedang ditinjau oleh Admin.
               </div>
             ) : teacherApp?.status === 'rejected' ? (
               <div className="flex flex-col gap-3">
-                <div className="bg-red-50 text-red-800 p-3 rounded-lg border border-red-200 text-xs">
-                  ✕ Permohonan sebelumnya ditolak. Catatan Admin: "{teacherApp.note || 'Tidak ada catatan'}"
+                <div className="p-3 rounded-xl border text-xs text-danger bg-danger-soft border-danger">
+                  Permohonan sebelumnya ditolak. Catatan Admin: "{teacherApp.note || 'Tidak ada catatan'}"
                 </div>
                 <button
                   onClick={handleApplyTeacher}
                   disabled={loading}
-                  className="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold px-4 py-2 rounded-lg text-xs transition"
+                  className="btn-primary !py-2 !px-4 text-xs"
                 >
                   Ajukan Permohonan Baru
                 </button>
@@ -256,7 +256,7 @@ export const UserProfile: React.FC<UserProfileProps> = ({ onLogout }) => {
               <button
                 onClick={handleApplyTeacher}
                 disabled={loading}
-                className="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold px-4 py-2 rounded-lg text-xs transition"
+                className="btn-primary !py-2 !px-4 text-xs"
               >
                 Daftar Sebagai Pengajar
               </button>
@@ -265,22 +265,22 @@ export const UserProfile: React.FC<UserProfileProps> = ({ onLogout }) => {
         )}
 
         {/* Profile Settings & Daily Limits (S7-03) */}
-        <form onSubmit={handleUpdateProfile} className="bg-white border rounded-xl p-5 shadow-sm">
-          <h3 className="text-lg font-bold text-gray-800 mb-4">Ubah Profil & Target Belajar</h3>
+        <form onSubmit={handleUpdateProfile} className="card p-5">
+          <h3 className="font-display text-lg font-bold text-ink mb-4">Ubah Profil & Target Belajar</h3>
           <div className="mb-4">
-            <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">Email</label>
+            <label className="block text-xs font-semibold text-ink-faint uppercase mb-1">Email</label>
             <input
               type="text"
               disabled
-              className="w-full bg-gray-50 text-gray-500 border border-gray-200 rounded-lg px-3 py-2 text-sm cursor-not-allowed"
+              className="field-input text-sm cursor-not-allowed opacity-60"
               value={user?.email || ''}
             />
           </div>
           <div className="mb-4">
-            <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">Nama Tampilan</label>
+            <label className="block text-xs font-semibold text-ink-faint uppercase mb-1">Nama Tampilan</label>
             <input
               type="text"
-              className="w-full bg-white text-gray-950 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+              className="field-input text-sm"
               value={displayName}
               onChange={(e) => setDisplayName(e.target.value)}
               disabled={loading}
@@ -289,10 +289,10 @@ export const UserProfile: React.FC<UserProfileProps> = ({ onLogout }) => {
 
           <div className="grid grid-cols-2 gap-4 mb-4">
             <div>
-              <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">Limit Kartu Baru / Hari</label>
+              <label className="block text-xs font-semibold text-ink-faint uppercase mb-1">Limit Kartu Baru / Hari</label>
               <input
                 type="number"
-                className="w-full bg-white text-gray-950 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500"
+                className="field-input text-sm"
                 value={dailyNewLimit}
                 onChange={(e) => setDailyNewLimit(parseInt(e.target.value, 10))}
                 disabled={loading}
@@ -301,10 +301,10 @@ export const UserProfile: React.FC<UserProfileProps> = ({ onLogout }) => {
               />
             </div>
             <div>
-              <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">Limit Review Kartu / Hari</label>
+              <label className="block text-xs font-semibold text-ink-faint uppercase mb-1">Limit Review Kartu / Hari</label>
               <input
                 type="number"
-                className="w-full bg-white text-gray-950 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500"
+                className="field-input text-sm"
                 value={dailyReviewLimit}
                 onChange={(e) => setDailyReviewLimit(parseInt(e.target.value, 10))}
                 disabled={loading}
@@ -317,30 +317,30 @@ export const UserProfile: React.FC<UserProfileProps> = ({ onLogout }) => {
           <button
             type="submit"
             disabled={loading}
-            className="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold px-4 py-2 rounded-lg text-sm transition"
+            className="btn-primary !py-2 !px-4 text-sm"
           >
             Simpan Perubahan
           </button>
         </form>
 
         {/* Change Password */}
-        <form onSubmit={handleUpdatePassword} className="bg-white border rounded-xl p-5 shadow-sm">
-          <h3 className="text-lg font-bold text-gray-800 mb-4">Ganti Password</h3>
+        <form onSubmit={handleUpdatePassword} className="card p-5">
+          <h3 className="font-display text-lg font-bold text-ink mb-4">Ganti Password</h3>
           <div className="mb-4">
-            <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">Password Lama</label>
+            <label className="block text-xs font-semibold text-ink-faint uppercase mb-1">Password Lama</label>
             <input
               type="password"
-              className="w-full bg-white text-gray-950 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+              className="field-input text-sm"
               value={oldPassword}
               onChange={(e) => setOldPassword(e.target.value)}
               disabled={loading}
             />
           </div>
           <div className="mb-4">
-            <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">Password Baru</label>
+            <label className="block text-xs font-semibold text-ink-faint uppercase mb-1">Password Baru</label>
             <input
               type="password"
-              className="w-full bg-white text-gray-950 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+              className="field-input text-sm"
               value={newPassword}
               onChange={(e) => setNewPassword(e.target.value)}
               disabled={loading}
@@ -349,34 +349,34 @@ export const UserProfile: React.FC<UserProfileProps> = ({ onLogout }) => {
           <button
             type="submit"
             disabled={loading}
-            className="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold px-4 py-2 rounded-lg text-sm transition"
+            className="btn-primary !py-2 !px-4 text-sm"
           >
             Ganti Password
           </button>
         </form>
 
         {/* Account Actions */}
-        <div className="bg-white border rounded-xl p-5 shadow-sm flex flex-col sm:flex-row justify-between items-center gap-4">
+        <div className="card p-5 flex flex-col sm:flex-row justify-between items-center gap-4">
           <div>
-            <h3 className="text-lg font-bold text-gray-800">Keluar Sesi</h3>
-            <p className="text-xs text-gray-500">Keluar dari perangkat ini.</p>
+            <h3 className="font-display text-lg font-bold text-ink">Keluar Sesi</h3>
+            <p className="text-xs text-ink-muted">Keluar dari perangkat ini.</p>
           </div>
           <button
             onClick={handleLogout}
-            className="w-full sm:w-auto bg-gray-100 hover:bg-gray-250 text-gray-700 font-semibold px-5 py-2.5 rounded-lg text-sm transition border border-gray-300"
+            className="btn-secondary w-full sm:w-auto"
           >
             Log Out
           </button>
         </div>
 
-        <div className="bg-red-50 border border-red-200 rounded-xl p-5 flex flex-col sm:flex-row justify-between items-center gap-4">
+        <div className="p-5 rounded-xl border flex flex-col sm:flex-row justify-between items-center gap-4 border-danger bg-danger-soft">
           <div>
-            <h3 className="text-lg font-bold text-red-800">Hapus Akun</h3>
-            <p className="text-xs text-red-600">Semua data Anda akan dihapus secara permanen.</p>
+            <h3 className="font-display text-lg font-bold text-danger">Hapus Akun</h3>
+            <p className="text-xs text-danger">Semua data Anda akan dihapus secara permanen.</p>
           </div>
           <button
             onClick={handleDeleteAccount}
-            className="w-full sm:w-auto bg-red-600 hover:bg-red-700 text-white font-semibold px-5 py-2.5 rounded-lg text-sm transition shadow-sm"
+            className="w-full sm:w-auto font-semibold px-5 py-2.5 rounded-full text-sm transition bg-danger text-white"
           >
             Hapus Akun
           </button>

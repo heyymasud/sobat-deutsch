@@ -42,28 +42,28 @@ export const ReportWordModal: React.FC<ReportWordModalProps> = ({ wordId, lemma,
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-      <div className="relative max-w-md w-full bg-white border rounded-2xl p-6 shadow-lg text-left">
+      <div className="relative max-w-md w-full bg-surface border rounded-2xl p-6 shadow-lg text-left">
         <button
           onClick={onClose}
-          className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 text-lg font-bold"
+          className="absolute top-4 right-4 text-ink-faint hover:text-ink-muted text-lg font-bold"
         >
           ✕
         </button>
-        <h2 className="text-lg font-bold text-gray-900 mb-2">Laporkan kesalahan</h2>
-        <p className="text-xs text-gray-400 mb-4">
-          Ada yang salah pada kata <strong className="text-gray-800">"{lemma}"</strong>? Beri tahu kami.
+        <h2 className="text-lg font-bold text-ink mb-2">Laporkan kesalahan</h2>
+        <p className="text-xs text-ink-faint mb-4">
+          Ada yang salah pada kata <strong className="text-ink">"{lemma}"</strong>? Beri tahu kami.
         </p>
 
         {errorMsg && (
-          <div className="bg-red-50 text-red-700 p-3 rounded-lg border border-red-200 text-xs mb-4">{errorMsg}</div>
+          <div className="bg-danger-soft text-danger p-3 rounded-xl border border-danger text-xs mb-4">{errorMsg}</div>
         )}
         {successMsg && (
-          <div className="bg-green-50 text-green-700 p-3 rounded-lg border border-green-200 text-xs mb-4">{successMsg}</div>
+          <div className="bg-success-soft text-success p-3 rounded-xl border border-success text-xs mb-4">{successMsg}</div>
         )}
 
         <form onSubmit={handleSubmit} className="flex flex-col gap-3">
           <textarea
-            className="w-full bg-white text-gray-950 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+            className="w-full field-input text-sm"
             value={note}
             onChange={(e) => setNote(e.target.value)}
             placeholder="Jelaskan apa yang menurut Anda salah..."
@@ -75,14 +75,14 @@ export const ReportWordModal: React.FC<ReportWordModalProps> = ({ wordId, lemma,
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 border rounded-lg hover:bg-gray-50 text-gray-600 transition text-xs"
+              className="px-4 py-2 border rounded-xl hover:bg-surface-muted text-ink-muted transition text-xs"
             >
               Batal
             </button>
             <button
               type="submit"
               disabled={loading}
-              className="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold px-4 py-2 rounded-lg transition shadow-sm text-xs"
+              className="btn-primary text-xs"
             >
               Kirim Laporan
             </button>

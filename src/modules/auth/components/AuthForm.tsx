@@ -1,4 +1,5 @@
 import React, { useState } from 'react'
+import { Mail, Lock, Loader2 } from 'lucide-react'
 import { supabase } from '../../../core/api/supabaseClient'
 
 interface AuthFormProps {
@@ -157,19 +158,25 @@ export const AuthForm: React.FC<AuthFormProps> = ({ onAuthSuccess }) => {
   };
 
   return (
-    <div className="bg-white border border-gray-200 rounded-2xl shadow-md p-6 max-w-md w-full mx-auto my-12 text-left">
-      <h2 className="text-2xl font-bold text-gray-900 mb-6 text-center">
-        {view === 'login' ? 'Masuk ke Akun' : view === 'signup' ? 'Daftar Baru' : 'Reset Password'}
+    <div className="card p-8 max-w-md w-full mx-auto text-left">
+      {view !== 'reset' && (
+        <div className="pill-toggle mb-6 mx-auto w-fit">
+          <button type="button" data-active={view === 'login'} onClick={() => setView('login')}>Masuk</button>
+          <button type="button" data-active={view === 'signup'} onClick={() => setView('signup')}>Daftar</button>
+        </div>
+      )}
+      <h2 className="page-title text-2xl mb-6 text-center">
+        {view === 'login' ? 'Selamat datang kembali' : view === 'signup' ? 'Buat akun baru' : 'Reset Password'}
       </h2>
 
       {errorMsg && (
-        <div className="bg-red-50 text-red-700 p-3 rounded-lg border border-red-200 text-sm mb-4">
+        <div className="p-3 rounded-xl border text-sm mb-4 text-danger bg-danger-soft border-danger">
           {errorMsg}
         </div>
       )}
 
       {infoMsg && (
-        <div className="bg-green-50 text-green-700 p-3 rounded-lg border border-green-200 text-sm mb-4">
+        <div className="p-3 rounded-xl border text-sm mb-4 text-success bg-success-soft border-success">
           {infoMsg}
         </div>
       )}
@@ -180,84 +187,72 @@ export const AuthForm: React.FC<AuthFormProps> = ({ onAuthSuccess }) => {
         }
         className="flex flex-col gap-4"
       >
-        <div>
-          <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">
-            Alamat Email
-          </label>
+        <div className="relative">
+          <Mail className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-faint" />
           <input
             type="email"
-            className="w-full bg-white text-gray-950 border border-gray-300 rounded-lg px-4 py-2.5 text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+            className="field-input !pl-11 text-sm"
+            placeholder="Alamat email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             disabled={loading}
+            aria-label="Alamat email"
             required
           />
         </div>
 
         {view !== 'reset' && (
           <div>
-            <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">
-              Password
-            </label>
-            <input
-              type="password"
-              className="w-full bg-white text-gray-950 border border-gray-300 rounded-lg px-4 py-2.5 text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              disabled={loading}
-              required
-            />
+            <div className="relative">
+              <Lock className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-faint" />
+              <input
+                type="password"
+                className="field-input !pl-11 text-sm"
+                placeholder="Password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                disabled={loading}
+                aria-label="Password"
+                required
+              />
+            </div>
             {view === 'signup' && (
-              <p className="text-[10px] text-gray-400 mt-1">
+              <p className="text-xs text-ink-faint mt-2">
                 Minimal 8 karakter, huruf besar, huruf kecil, dan angka.
               </p>
             )}
           </div>
         )}
 
-        <button
-          type="submit"
-          disabled={loading}
-          className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 rounded-lg transition shadow-sm text-sm mt-2 flex items-center justify-center gap-2"
-        >
-          {loading && (
-            <svg className="animate-spin h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
-              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-            </svg>
-          )}
+        <button type="submit" disabled={loading} className="btn-primary w-full py-3.5 text-sm mt-2 flex items-center justify-center gap-2">
+          {loading && <Loader2 className="h-4 w-4 animate-spin" />}
           {view === 'login' ? 'Masuk' : view === 'signup' ? 'Daftar' : 'Kirim Tautan'}
         </button>
       </form>
 
       {view === 'login' && (
-        <button
-          type="button"
-          onClick={handleGoogleLogin}
-          disabled={loading}
-          className="w-full mt-3 bg-white hover:bg-gray-50 text-gray-700 font-semibold py-2.5 rounded-lg border border-gray-300 transition text-sm flex items-center justify-center gap-2"
-        >
+        <button type="button" onClick={handleGoogleLogin} disabled={loading} className="btn-secondary w-full mt-3 py-3.5 text-sm flex items-center justify-center gap-2">
           Masuk dengan Google
         </button>
       )}
 
       {/* Switch View Controls */}
-      <div className="mt-6 pt-4 border-t border-gray-100 flex flex-col items-center gap-2 text-xs text-gray-500">
+      <div className="mt-6 pt-4 border-t border-border flex flex-col items-center gap-2 text-xs text-ink-muted">
         {view === 'login' ? (
           <>
-            <button onClick={() => setView('signup')} className="text-indigo-600 hover:underline">
+            <button onClick={() => setView('signup')} className="text-brand hover:underline">
               Belum punya akun? Daftar gratis
             </button>
-            <button onClick={() => setView('reset')} className="text-gray-400 hover:underline">
+            <button onClick={() => setView('reset')} className="text-ink-faint hover:underline">
               Lupa password?
             </button>
           </>
         ) : view === 'signup' ? (
-          <button onClick={() => setView('login')} className="text-indigo-600 hover:underline">
+          <button onClick={() => setView('login')} className="text-brand hover:underline">
             Sudah punya akun? Masuk
           </button>
         ) : (
-          <button onClick={() => setView('login')} className="text-indigo-600 hover:underline">
+          <button onClick={() => setView('login')} className="text-brand hover:underline">
             Kembali ke Halaman Masuk
           </button>
         )}

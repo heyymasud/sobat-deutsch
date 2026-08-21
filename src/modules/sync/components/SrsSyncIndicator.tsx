@@ -17,23 +17,23 @@ export const SrsSyncIndicator: React.FC = () => {
   const { state, pendingCount, error } = status
 
   return (
-    <div className="flex items-center gap-2 p-2 bg-white rounded-lg border border-gray-200 shadow-sm text-xs">
-      <span className="font-semibold text-gray-500">Sync Progres:</span>
+    <div className="flex items-center gap-2 p-2 bg-surface rounded-xl border border-border shadow-sm text-xs">
+      <span className="font-semibold text-ink-muted">Sync Progres:</span>
       {state === 'error' ? (
-        <span className="bg-red-100 text-red-800 font-bold px-2 py-0.5 rounded-full" title={error ?? undefined}>
+        <span className="badge-status badge-status-danger" title={error ?? undefined}>
           Gagal sync ({pendingCount} tertunda)
         </span>
       ) : state === 'syncing' ? (
-        <span className="bg-blue-100 text-blue-800 font-bold px-2 py-0.5 rounded-full flex items-center gap-1">
-          <span className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse"></span>
+        <span className="badge-status badge-status-brand">
+          <span className="w-1.5 h-1.5 rounded-full bg-brand animate-pulse"></span>
           Menyinkronkan...
         </span>
       ) : pendingCount > 0 ? (
-        <span className="bg-yellow-100 text-yellow-800 font-bold px-2 py-0.5 rounded-full">
+        <span className="badge-status badge-status-warning">
           {pendingCount} menunggu
         </span>
       ) : (
-        <span className="bg-green-100 text-green-800 font-bold px-2 py-0.5 rounded-full">
+        <span className="badge-status badge-status-success">
           Tersinkron
         </span>
       )}
@@ -41,7 +41,7 @@ export const SrsSyncIndicator: React.FC = () => {
       {state === 'error' && (
         <button
           onClick={() => syncEngine.triggerSync()}
-          className="text-red-600 hover:text-red-800 font-semibold px-2 py-1 rounded hover:bg-red-50 border border-red-200 transition text-[10px]"
+          className="text-danger hover:text-danger font-semibold px-2 py-1 rounded hover:bg-danger-soft border border-danger transition text-xs"
         >
           Coba Lagi
         </button>

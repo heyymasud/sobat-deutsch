@@ -1,4 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react'
+import { AnimatePresence, motion } from 'framer-motion'
+import { Zap, Timer, Flame, RotateCcw, Check, X, Plus } from 'lucide-react'
 import { db } from '../../../core/db/dictionaryDb'
 import type { MistakeTrackerEntry } from '../../../core/db/dictionaryDb'
 import { generateCardsForWord } from '../../../core/srs/srsScheduler'
@@ -273,7 +275,7 @@ export const ArtikelRush: React.FC = () => {
 
     try {
       const deckId = parseInt(selectedDeckId, 10)
-      
+
       const existing = await db.srsCards
         .where('deckId')
         .equals(deckId)
@@ -340,159 +342,150 @@ export const ArtikelRush: React.FC = () => {
     }
   }, [gameState, score, highScore]) // include timer deps
 
+  const genderButton = (gender: 'm' | 'f' | 'n', article: string) => {
+    const isRightAnswer = feedback && currentWord?.gender === gender
+    const isWrongPick = lastSelected === gender && feedback === 'incorrect'
+    let cls = 'relative h-24 rounded-2xl font-display text-2xl font-black transition-transform active:scale-95'
+
+    if (isRightAnswer) {
+      cls += ' bg-success text-white'
+    } else if (isWrongPick) {
+      cls += ' bg-danger text-white'
+    } else {
+      cls += ` bg-gender-${gender} text-white`
+    }
+    if (feedback && !isRightAnswer && !isWrongPick) cls += ' opacity-40'
+
+    return (
+      <button onClick={() => handleAnswer(gender)} disabled={!!feedback} className={cls}>
+        {article}
+      </button>
+    )
+  }
+
   return (
-    <div className="max-w-4xl mx-auto my-6 px-4 text-left grid md:grid-cols-3 gap-8">
+    <div className="max-w-5xl mx-auto text-left grid md:grid-cols-3 gap-6">
       {/* Quiz Area */}
-      <div className="md:col-span-2 flex flex-col items-center">
-        <div className="bg-white border border-gray-200 rounded-2xl shadow-md p-8 w-full min-h-[350px] flex flex-col justify-between text-center">
+      <div className="md:col-span-2 flex flex-col items-center gap-4">
+        <div className="card p-6 md:p-10 w-full min-h-96 flex flex-col justify-between text-center">
           {gameState === 'idle' && (
             <div className="my-auto">
-              <h2 className="text-3xl font-extrabold text-gray-900 mb-3">Kuis Artikel Rush</h2>
-              <p className="text-gray-500 mb-6 max-w-sm mx-auto text-sm">
-                Tebak artikel gender (`der`, `die`, `das`) untuk kata benda Jerman sebanyak-banyaknya dalam waktu 30 detik!
+              <motion.div initial={{ scale: 0.7, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}
+                className="mx-auto grid h-20 w-20 place-items-center rounded-3xl bg-gender-p text-ink mb-6">
+                <Zap className="h-9 w-9" fill="currentColor" />
+              </motion.div>
+              <h2 className="page-title text-3xl md:text-4xl mb-3">Artikel Rush</h2>
+              <p className="text-ink-muted mb-6 max-w-sm mx-auto">
+                Tebak der / die / das secepat mungkin. Makin cepat & panjang streak, makin tinggi skor.
               </p>
-              <button
-                onClick={handleStartGame}
-                className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-8 rounded-xl transition shadow-sm text-sm"
-              >
-                Mulai Bermain
-              </button>
+              <div className="flex items-center justify-center gap-6 text-sm text-ink-faint mb-8">
+                <span className="flex items-center gap-2"><Timer className="h-4 w-4" /> 30 detik</span>
+                {highScore > 0 && (
+                  <span className="flex items-center gap-2"><Flame className="h-4 w-4 text-gender-p" /> skor tertinggi: {highScore}</span>
+                )}
+              </div>
+              <button onClick={handleStartGame} className="btn-primary !px-8 !py-3.5 text-base">Mulai Bermain</button>
             </div>
           )}
 
           {gameState === 'playing' && currentWord && (
             <>
-              {/* Header metrics */}
-              <div className="flex justify-between items-center text-xs text-gray-400 mb-4">
-                <span className="font-semibold text-gray-800">Skor: {score}</span>
-                <span className="font-semibold text-gray-800">Streak: {streak}</span>
-                <span className="bg-indigo-50 text-indigo-700 font-bold px-2.5 py-1 rounded-full">
-                  Waktu: {timeLeft}s
+              {/* Score, streak & timer */}
+              <div className="flex items-center justify-between mb-4">
+                <span className={`flex items-center gap-1.5 rounded-full px-4 py-1.5 font-bold text-sm ${streak > 0 ? 'bg-gender-p text-ink' : 'bg-surface-muted text-ink-muted'}`}>
+                  <Flame className="h-4 w-4" /> {streak}
                 </span>
+                <span className="stat-figure text-2xl">{score}</span>
+                <span className={`flex items-center gap-1.5 rounded-full px-4 py-1.5 font-bold text-sm ${timeLeft <= 10 ? 'bg-danger text-white' : 'bg-surface-muted text-ink-muted'}`}>
+                  <Timer className="h-4 w-4" /> {timeLeft}s
+                </span>
+              </div>
+              <div className="h-1.5 w-full overflow-hidden rounded-full bg-surface-muted mb-2">
+                <div className="h-full bg-gender-p transition-[width] duration-1000 ease-linear" style={{ width: `${(timeLeft / 30) * 100}%` }} />
               </div>
 
               {/* Word Display */}
-              <div className="my-auto flex flex-col items-center justify-center">
-                <h3 className="text-4xl font-extrabold text-gray-900 mb-2">
-                  {currentWord.lemma.charAt(0).toUpperCase() + currentWord.lemma.slice(1)}
-                </h3>
-                <p className="text-sm text-gray-400 italic max-w-xs">{currentWord.translations}</p>
-              </div>
+              <AnimatePresence mode="wait">
+                <motion.div key={currentWord.id} initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -16 }}
+                  transition={{ duration: 0.2 }} className="my-auto flex flex-col items-center justify-center">
+                  <h3 className="page-title text-4xl md:text-5xl mb-2">
+                    {currentWord.lemma.charAt(0).toUpperCase() + currentWord.lemma.slice(1)}
+                  </h3>
+                  <p className="text-sm text-ink-faint max-w-xs">{currentWord.translations}</p>
+                </motion.div>
+              </AnimatePresence>
 
               {/* Status Indicator */}
               <div className="h-6 mb-4">
                 {feedback === 'correct' && (
-                  <span className="text-green-600 font-bold text-sm flex items-center justify-center gap-1">
-                    ✓ Benar (+10)
+                  <span className="flex items-center justify-center gap-1.5 font-display font-bold text-sm text-success">
+                    <Check className="h-4 w-4" /> Benar (+10)
                   </span>
                 )}
                 {feedback === 'incorrect' && (
-                  <span className="text-red-600 font-bold text-sm flex items-center justify-center gap-1">
-                    ✗ Salah! Jawaban: {currentWord.gender === 'm' ? 'der' : currentWord.gender === 'f' ? 'die' : 'das'}
+                  <span className="flex items-center justify-center gap-1.5 font-display font-bold text-sm text-danger">
+                    <X className="h-4 w-4" /> Salah! Jawaban: {currentWord.gender === 'm' ? 'der' : currentWord.gender === 'f' ? 'die' : 'das'}
                   </span>
                 )}
               </div>
 
-              {/* Three gender buttons */}
-              <div className="grid grid-cols-3 gap-3">
-                <button
-                  onClick={() => handleAnswer('m')}
-                  disabled={!!feedback}
-                  className={`py-3.5 rounded-xl font-extrabold text-sm transition border ${
-                    feedback && currentWord.gender === 'm'
-                      ? 'bg-green-500 text-white border-green-500'
-                      : lastSelected === 'm' && feedback === 'incorrect'
-                      ? 'bg-red-500 text-white border-red-500'
-                      : 'bg-white text-gender-m border-gender-m hover:bg-blue-50'
-                  }`}
-                >
-                  der (m)
-                </button>
-                <button
-                  onClick={() => handleAnswer('f')}
-                  disabled={!!feedback}
-                  className={`py-3.5 rounded-xl font-extrabold text-sm transition border ${
-                    feedback && currentWord.gender === 'f'
-                      ? 'bg-green-500 text-white border-green-500'
-                      : lastSelected === 'f' && feedback === 'incorrect'
-                      ? 'bg-red-500 text-white border-red-500'
-                      : 'bg-white text-gender-f border-gender-f hover:bg-red-50'
-                  }`}
-                >
-                  die (f)
-                </button>
-                <button
-                  onClick={() => handleAnswer('n')}
-                  disabled={!!feedback}
-                  className={`py-3.5 rounded-xl font-extrabold text-sm transition border ${
-                    feedback && currentWord.gender === 'n'
-                      ? 'bg-green-500 text-white border-green-500'
-                      : lastSelected === 'n' && feedback === 'incorrect'
-                      ? 'bg-red-500 text-white border-red-500'
-                      : 'bg-white text-gender-n border-gender-n hover:bg-green-50'
-                  }`}
-                >
-                  das (n)
-                </button>
+              <div className="grid grid-cols-3 gap-4">
+                {genderButton('m', 'der')}
+                {genderButton('f', 'die')}
+                {genderButton('n', 'das')}
               </div>
             </>
           )}
 
           {gameState === 'ended' && (
             <div className="my-auto">
-              <h2 className="text-3xl font-extrabold text-gray-900 mb-2">Game Over!</h2>
-              <p className="text-lg text-gray-600 mb-2">Skor Anda: <strong className="text-indigo-600 text-2xl">{score}</strong></p>
-              <p className="text-sm text-gray-500 mb-1">
-                Akurasi: <strong className="text-gray-700">
-                  {totalAnswered > 0 ? Math.round((correctAnswered / totalAnswered) * 100) : 0}%
-                </strong>
-              </p>
-              <p className="text-sm text-gray-500 mb-6">
-                Streak Tertinggi: <strong className="text-gray-700">{highStreak}</strong>
-              </p>
-              <div className="flex gap-4 justify-center">
-                <button
-                  onClick={handleStartGame}
-                  className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-6 rounded-xl transition shadow-sm text-sm"
-                >
-                  Main Lagi
-                </button>
+              <h2 className="page-title text-3xl mb-6">Waktu Habis!</h2>
+              <div className="grid grid-cols-2 gap-4 mb-6">
+                <div className="card p-6">
+                  <p className="eyebrow">Skor</p>
+                  <p className="stat-figure text-5xl mt-1">{score}</p>
+                </div>
+                <div className="card p-6">
+                  <p className="eyebrow">Terbaik</p>
+                  <p className="stat-figure text-5xl mt-1 text-gender-p">{Math.max(highScore, score)}</p>
+                </div>
               </div>
+              <p className="text-sm text-ink-muted mb-1">
+                Akurasi: <strong className="text-ink">{totalAnswered > 0 ? Math.round((correctAnswered / totalAnswered) * 100) : 0}%</strong>
+              </p>
+              <p className="text-sm text-ink-muted mb-6">
+                Streak Tertinggi: <strong className="text-ink">{highStreak}</strong>
+              </p>
+              <button onClick={handleStartGame} className="btn-primary !px-8 !py-3.5 text-base inline-flex items-center gap-2">
+                <RotateCcw className="h-4 w-4" /> Main Lagi
+              </button>
             </div>
           )}
         </div>
 
         {errorMsg && (
-          <div className="bg-red-50 text-red-700 p-3 rounded-lg border border-red-200 mt-4 text-xs w-full">
+          <div className="p-4 rounded-2xl border text-sm w-full text-danger bg-danger-soft border-danger">
             {errorMsg}
           </div>
         )}
       </div>
 
       {/* Recommendations Panel */}
-      <div className="bg-white border border-gray-200 rounded-2xl shadow-md p-6 h-fit">
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="text-lg font-bold text-gray-800 flex items-center gap-1.5">
-            <svg className="w-5 h-5 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
-            Rekomendasi Belajar
-          </h3>
+      <div className="card p-6 h-fit">
+        <div className="flex items-center justify-between gap-2 mb-3">
+          <h3 className="font-display font-bold text-ink text-sm uppercase tracking-wide">Perlu Diulang</h3>
           {recommendations.some((r) => !r.recommendedToDeck) && (
-            <button
-              onClick={triggerAddAllToDeck}
-              className="text-indigo-600 hover:text-indigo-800 font-bold hover:bg-indigo-50 border border-indigo-200 px-2 py-1 rounded transition text-[10px] whitespace-nowrap"
-            >
-              Tambahkan Semua
+            <button onClick={triggerAddAllToDeck} className="badge badge-accent whitespace-nowrap">
+              Tambah Semua
             </button>
           )}
         </div>
-        <p className="text-xs text-gray-400 mb-4">
-          Daftar kata benda yang paling sering salah saat kuis. Tambahkan ke deck flashcard untuk dipelajari di SRS.
+        <p className="text-xs text-ink-faint mb-4">
+          Kata yang paling sering salah saat kuis. Tambahkan ke deck flashcard untuk dipelajari di SRS.
         </p>
 
         {recommendations.length === 0 ? (
-          <div className="text-xs text-gray-400 italic text-center py-6 border border-dashed rounded-lg bg-gray-50">
+          <div className="text-xs text-ink-faint italic text-center py-8 border border-dashed border-border rounded-2xl">
             Belum ada rekomendasi. Mainkan kuis terlebih dahulu!
           </div>
         ) : (
@@ -502,29 +495,23 @@ export const ArtikelRush: React.FC = () => {
               const genderArticle = item.word!.gender === 'm' ? 'der' : item.word!.gender === 'f' ? 'die' : 'das'
 
               return (
-                <div
-                  key={item.wordRef}
-                  className="flex items-center justify-between border-b border-gray-150 pb-2 text-xs"
-                >
+                <div key={item.wordRef} className="flex items-center justify-between gap-2 rounded-xl bg-surface-muted px-4 py-3 text-xs">
                   <div>
-                    <div className="font-bold text-gray-800">
-                      <span className="text-indigo-600 font-semibold mr-1">{genderArticle}</span>
+                    <div className="font-display font-bold text-ink">
+                      <span className="text-brand font-semibold mr-1">{genderArticle}</span>
                       {displayLemma}
                     </div>
-                    <div className="text-[10px] text-red-500 font-medium">
+                    <div className="text-xs font-medium text-danger">
                       Salah {item.mistakeCount} kali
                     </div>
                   </div>
-                  
+
                   {!item.recommendedToDeck ? (
-                    <button
-                      onClick={() => triggerAddToDeck(item.word!)}
-                      className="text-indigo-600 hover:text-indigo-800 font-bold hover:bg-indigo-50 border border-indigo-200 px-2 py-1 rounded transition text-[10px]"
-                    >
-                      + Deck
+                    <button onClick={() => triggerAddToDeck(item.word!)} className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-brand text-white">
+                      <Plus className="h-4 w-4" />
                     </button>
                   ) : (
-                    <span className="text-[10px] text-gray-400 italic">Sudah di deck</span>
+                    <span className="text-xs text-ink-faint italic whitespace-nowrap">Sudah di deck</span>
                   )}
                 </div>
               )
@@ -535,42 +522,34 @@ export const ArtikelRush: React.FC = () => {
 
       {/* Add To Deck Modal */}
       {showAddModal && (bulkAddMode || wordToAddToDeck) && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="bg-white rounded-2xl shadow-xl max-w-sm w-full p-6 text-left border border-gray-100">
-            <h3 className="text-lg font-bold text-gray-900 mb-3">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
+          <div className="card max-w-sm w-full p-6 text-left">
+            <h3 className="font-display text-lg font-bold text-ink mb-3">
               {bulkAddMode ? 'Tambah Semua Rekomendasi' : 'Tambah Rekomendasi Kata'}
             </h3>
-            <p className="text-sm text-gray-500 mb-4">
+            <p className="text-sm text-ink-muted mb-4">
               {bulkAddMode ? (
                 <>
                   Pilih deck tujuan untuk mendaftarkan{' '}
-                  <strong className="text-gray-800">
-                    {recommendations.filter((r) => !r.recommendedToDeck).length} kata
-                  </strong>{' '}
+                  <strong className="text-ink">{recommendations.filter((r) => !r.recommendedToDeck).length} kata</strong>{' '}
                   rekomendasi sekaligus.
                 </>
               ) : (
                 <>
                   Pilih deck tujuan untuk mendaftarkan kata{' '}
-                  <strong className="text-gray-800">"{wordToAddToDeck!.lemma}"</strong>.
+                  <strong className="text-ink">"{wordToAddToDeck!.lemma}"</strong>.
                 </>
               )}
             </p>
-            
+
             {decks.length === 0 ? (
-              <div className="text-sm text-amber-600 bg-amber-50 p-3 border border-amber-100 rounded-lg mb-4 text-center">
-                Belum ada deck. Buka tab <strong>SRS Flashcard</strong> untuk membuat deck terlebih dahulu.
+              <div className="text-sm p-3 rounded-xl border mb-4 text-center text-warning bg-warning-soft border-warning">
+                Belum ada deck. Buka tab <strong>SRS</strong> untuk membuat deck terlebih dahulu.
               </div>
             ) : (
-              <select
-                className="w-full bg-white text-gray-950 border border-gray-300 rounded-lg p-2.5 text-sm mb-4 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                value={selectedDeckId}
-                onChange={(e) => setSelectedDeckId(e.target.value)}
-              >
+              <select className="field-input mb-4 text-sm" value={selectedDeckId} onChange={(e) => setSelectedDeckId(e.target.value)}>
                 {decks.map((deck) => (
-                  <option key={deck.id} value={deck.id}>
-                    {deck.name}
-                  </option>
+                  <option key={deck.id} value={deck.id}>{deck.name}</option>
                 ))}
               </select>
             )}
@@ -582,18 +561,14 @@ export const ArtikelRush: React.FC = () => {
                   setWordToAddToDeck(null)
                   setBulkAddMode(false)
                 }}
-                className="px-4 py-2 border rounded-lg hover:bg-gray-50 text-gray-600 transition"
+                className="btn-secondary"
               >
                 Batal
               </button>
               <button
                 disabled={decks.length === 0}
                 onClick={bulkAddMode ? confirmAddAllToDeck : confirmAddToDeck}
-                className={`px-4 py-2 text-white font-semibold rounded-lg transition ${
-                  decks.length > 0
-                    ? 'bg-indigo-600 hover:bg-indigo-700 shadow-sm'
-                    : 'bg-gray-300 cursor-not-allowed'
-                }`}
+                className="btn-primary"
               >
                 Tambah
               </button>
