@@ -9,7 +9,8 @@
     "typecheck": "tsc --noEmit",
     "lint": "oxlint",
     "test": "vitest run",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "seed:admin": "node scripts/seed_admin.mjs"
   },
   "dependencies": {
     "@sentry/react": "^10.70.0",
