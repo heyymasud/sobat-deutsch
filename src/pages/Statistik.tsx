@@ -45,7 +45,7 @@ export default function Statistik() {
               <h3 className="font-display text-lg font-bold">Aktivitas 7 hari</h3>
               <div className="mt-6 flex items-end justify-between gap-2 h-40">
                 {stats.weeklyActivity.map((d) => (
-                  <div key={d.date} className="flex flex-col items-center gap-2 flex-1">
+                  <div key={d.date} className="flex h-full flex-col items-center justify-end gap-2 flex-1">
                     <div
                       className="w-full rounded-t-lg bg-brand"
                       style={{ height: `${Math.max(6, (d.count / maxCount) * 100)}%` }}

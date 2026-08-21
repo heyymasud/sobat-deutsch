@@ -125,7 +125,7 @@ export const AuthForm: React.FC<AuthFormProps> = ({ onAuthSuccess }) => {
     try {
       const { error } = await supabase.auth.signUp({ email, password })
       if (error) throw error
-      setInfoMsg('Registrasi berhasil! Silakan periksa kotak masuk email Anda untuk verifikasi.')
+      onAuthSuccess()
     } catch (err: any) {
       setErrorMsg(err.message || 'Registrasi gagal. Silakan coba lagi.')
     } finally {
