@@ -128,6 +128,7 @@ export const searchDictionary = async (query: string): Promise<SearchResult[]> =
     // only gets exact prefix/substring matching, no fuzzy.
     const lemmaHits = miniSearch.search(normalized, { fields: ['lemma'] })
     const translationHits = miniSearch.search(normalized, { fields: ['translations'], fuzzy: 0, prefix: true })
+    const queryWordCount = normalized.split(/\s+/).filter(Boolean).length
 
     const byId = new Map<number, DictionaryEntry & { _tier: number }>()
     for (const r of lemmaHits) {
@@ -137,12 +138,21 @@ export const searchDictionary = async (query: string): Promise<SearchResult[]> =
     }
     for (const r of translationHits) {
       const entry = r as unknown as DictionaryEntry
+      // For multi-word queries (e.g. "living room"), a hit that matched every
+      // query word ("living room" -> Wohnzimmer) must outrank a hit that only
+      // matched one of them ("room" -> Zimmer, Büro, Küche, ...) -- otherwise
+      // the dozens of common single-word coincidences bury the real phrase
+      // match below the slice(0, 20) cutoff below by frequency_rank alone.
+      const matchedTerms = new Set(r.terms).size
+      const tier = matchedTerms < queryWordCount ? 1.5 : 1
       const existing = byId.get(entry.id)
-      if (!existing || existing._tier > 1) byId.set(entry.id, { ...entry, _tier: 1 }) // translations match, unless already a better lemma-prefix hit
+      if (!existing || existing._tier > tier) byId.set(entry.id, { ...entry, _tier: tier }) // translations match, unless already a better hit
     }
 
-    // Tier 0 (lemma prefix) > tier 1 (translation match) > tier 2 (fuzzy-only
-    // lemma, e.g. "Apferl" for "Apfel") -- then within each tier, by frequency.
+    // Tier 0 (lemma prefix) > tier 1 (translation, all query words matched) >
+    // tier 1.5 (translation, only some query words matched) > tier 2
+    // (fuzzy-only lemma, e.g. "Apferl" for "Apfel") -- then within each tier,
+    // by frequency.
     return Array.from(byId.values())
       .map((r) => r as unknown as SearchResult)
       .sort((a, b) => {

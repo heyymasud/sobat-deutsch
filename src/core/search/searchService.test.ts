@@ -207,4 +207,37 @@ describe('searchRouter (State A/B/C routing)', () => {
     expect(results.map((r) => r.lemma)).toContain('schwarz')
     expect(results.map((r) => r.lemma)).not.toContain('zurück')
   })
+
+  it('ranks a full multi-word phrase match above entries that only match one of the words', async () => {
+    vi.stubGlobal('navigator', { onLine: false })
+
+    // "Zimmer" (room) and "Leben" (living) are common, high-frequency words
+    // that each match only one word of "living room" -- without phrase-aware
+    // tiering, dozens of such single-word coincidences with better
+    // frequency_rank than "Wohnzimmer" push the actual phrase match past the
+    // top-20 cutoff (reproduced with the real dictionary export: Wohnzimmer
+    // landed at position 22).
+    const entries = [
+      { id: 1, lemma: 'Wohnzimmer', pos: 'noun', gender: 'n', plural: null, translations: 'living room', level: 'A2', frequency_rank: 3990 },
+      { id: 2, lemma: 'Zimmer', pos: 'noun', gender: null, plural: null, translations: 'room', level: 'A1', frequency_rank: 513 },
+      { id: 3, lemma: 'Leben', pos: 'noun', gender: null, plural: null, translations: 'living, life', level: 'A1', frequency_rank: 135 },
+    ]
+    vi.mocked(db.dictionary.count).mockResolvedValue(entries.length)
+    vi.mocked(db.dictionary.offset).mockReturnValue({
+      limit: () => ({ toArray: vi.fn().mockResolvedValue(entries) }),
+    } as any)
+
+    await indexLocalDictionary(true)
+
+    vi.mocked(db.dictSyncMeta.toCollection().first).mockResolvedValue({
+      localVersion: 1,
+      downloadState: 'idle',
+      downloadProgress: 100,
+      lastCheckedAt: 0,
+    })
+
+    const results = await searchDictionary('living room')
+
+    expect(results[0].lemma).toBe('Wohnzimmer')
+  })
 })
