@@ -16,9 +16,13 @@
     "@supabase/supabase-js": "^2.48.0",
     "dexie": "^4.0.11",
     "dexie-react-hooks": "^1.1.7",
+    "framer-motion": "^13.1.1",
+    "lucide-react": "^1.33.0",
     "minisearch": "^7.1.1",
     "react": "^19.2.8",
-    "react-dom": "^19.2.8"
+    "react-dom": "^19.2.8",
+    "react-router-dom": "^6.30.6",
+    "sonner": "^2.0.8"
   },
   "devDependencies": {
     "@tailwindcss/vite": "^4.0.0",

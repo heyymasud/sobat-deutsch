@@ -27,3 +27,5 @@ supabase/.branches/
 Thumbs.db
 .vscode/
 .idea/
+.claude
+exampleui
