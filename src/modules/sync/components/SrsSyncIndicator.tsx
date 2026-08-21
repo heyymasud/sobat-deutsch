@@ -6,7 +6,12 @@ import type { SyncEngineStatus } from '../../../core/sync/syncEngine'
 // S9-02 (AC-SYNC-01, AC-SYNC-03, FR-SYNC-06): status + manual retry for the
 // decks/srsCards/reviewLogs push queue — distinct from SyncIndicator, which
 // only reports dictionary-download status (syncManager, not syncEngine).
-export const SrsSyncIndicator: React.FC = () => {
+interface SrsSyncIndicatorProps {
+  /** Render as a small pill (icon + one-word label) instead of the full row. */
+  compact?: boolean
+}
+
+export const SrsSyncIndicator: React.FC<SrsSyncIndicatorProps> = ({ compact = false }) => {
   const [status, setStatus] = useState<SyncEngineStatus | null>(null)
 
   useEffect(() => {
@@ -31,6 +36,16 @@ export const SrsSyncIndicator: React.FC = () => {
   const title = state === 'error' ? 'Sinkronisasi gagal' : state === 'syncing' ? 'Menyinkronkan progres' : pendingCount > 0 ? `${pendingCount} perubahan tertunda` : 'Progres tersinkron'
 
   const subtitle = state === 'error' ? (error ?? 'Coba lagi') : state === 'syncing' ? 'Mohon tunggu…' : pendingCount > 0 ? 'Akan sync otomatis' : 'Semua perangkat terbaru'
+
+  if (compact) {
+    const label = state === 'error' ? 'Sync gagal' : state === 'syncing' ? 'Sync…' : pendingCount > 0 ? 'Pending sync' : 'Sync'
+    return (
+      <span title={subtitle} className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-bold ${toneClass}`}>
+        <Icon className={`h-3 w-3 ${state === 'syncing' ? 'animate-spin' : ''}`} strokeWidth={2.5} />
+        {label}
+      </span>
+    )
+  }
 
   return (
     <div className="flex items-center gap-2.5">

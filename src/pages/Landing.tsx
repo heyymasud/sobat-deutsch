@@ -42,16 +42,16 @@ function Nav() {
   return (
     <header className="fixed top-0 z-50 w-full">
       <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-5 md:px-12">
-        <Link to="/" className="flex items-center gap-2">
-          <span className="grid h-9 w-9 place-items-center rounded-xl bg-ink text-canvas"><BookOpen className="h-5 w-5" /></span>
-          <span className="font-display text-lg font-extrabold tracking-tight">Sobat<span className="text-brand">Deutsch</span></span>
+        <Link to="/" className="flex items-center gap-2 min-w-0">
+          <span className="grid h-8 w-8 shrink-0 place-items-center rounded-xl bg-ink text-canvas md:h-9 md:w-9"><BookOpen className="h-4 w-4 md:h-5 md:w-5" /></span>
+          <span className="truncate font-display text-base font-extrabold tracking-tight md:text-lg">Sobat<span className="text-brand">Deutsch</span></span>
         </Link>
-        <div className="flex items-center gap-2 md:gap-3">
-          <button onClick={toggle} className="grid h-10 w-10 place-items-center rounded-full border border-border bg-surface/70 backdrop-blur hover:bg-surface-muted transition-colors">
+        <div className="flex shrink-0 items-center gap-2 md:gap-3">
+          <button onClick={toggle} className="grid h-9 w-9 shrink-0 place-items-center rounded-full border border-border bg-surface/70 backdrop-blur hover:bg-surface-muted transition-colors md:h-10 md:w-10">
             {dark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
           </button>
           <Link to="/login" className="hidden rounded-full px-4 py-2 text-sm font-semibold text-ink-muted hover:text-ink sm:block">Masuk</Link>
-          <Link to="/kamus" className="rounded-full bg-ink px-5 py-2.5 text-sm font-bold text-canvas transition-transform hover:scale-[1.03]">Coba gratis</Link>
+          <Link to="/kamus" className="rounded-full bg-ink px-4 py-2 text-sm font-bold text-canvas transition-transform hover:scale-[1.03] md:px-5 md:py-2.5">Coba gratis</Link>
         </div>
       </div>
     </header>
@@ -75,7 +75,7 @@ export default function Landing() {
         </motion.div>
 
         <motion.h1 initial="hidden" animate="show" variants={rise} transition={{ delay: 0.1 }}
-          className="page-title text-6xl md:text-8xl">
+          className="page-title text-[2.75rem] leading-[1.1] sm:text-6xl md:text-8xl md:leading-[1.05]">
           Kuasai <span className="text-gender-m">der</span>,<br />
           <span className="text-gender-f">die</span>, <span className="text-gender-n">das</span> — tanpa tebak.
         </motion.h1>
@@ -106,7 +106,7 @@ export default function Landing() {
       </section>
 
       {/* MANIFESTO CHAPTERS */}
-      <section className="mx-auto max-w-7xl px-6 py-28 md:px-12">
+      <section className="mx-auto max-w-7xl px-6 py-16 sm:py-20 md:px-12 md:py-28">
         <motion.h2 initial="hidden" whileInView="show" viewport={{ once: true }} variants={rise}
           className="mb-16 max-w-2xl page-title text-3xl md:text-5xl">
           Empat masalah nyata pembelajar A1–B1. Satu aplikasi yang menjawabnya.
@@ -125,7 +125,7 @@ export default function Landing() {
       </section>
 
       {/* HOW IT WORKS */}
-      <section className="mx-auto max-w-7xl px-6 pb-28 md:px-12">
+      <section className="mx-auto max-w-7xl px-6 pb-16 sm:pb-20 md:px-12 md:pb-28">
         <p className="eyebrow mb-3">Cara kerjanya</p>
         <h2 className="page-title text-3xl md:text-4xl mb-10">Dari cari kata ke hafal — dalam dua klik.</h2>
         <div className="grid gap-8 md:grid-cols-3">
@@ -160,8 +160,8 @@ export default function Landing() {
       </section>
 
       {/* CTA */}
-      <section className="mx-auto max-w-7xl px-6 pb-28 md:px-12">
-        <div className="relative overflow-hidden rounded-[2.5rem] bg-ink px-8 py-16 text-center text-canvas md:py-24">
+      <section className="mx-auto max-w-7xl px-6 pb-16 sm:pb-20 md:px-12 md:pb-28">
+        <div className="relative overflow-hidden rounded-[2rem] bg-ink px-6 py-12 text-center text-canvas sm:rounded-[2.5rem] sm:px-8 sm:py-16 md:py-24">
           <div className="pointer-events-none absolute -left-10 top-0 h-40 w-40 rounded-full bg-gender-m/40 blur-3xl" />
           <div className="pointer-events-none absolute right-0 bottom-0 h-40 w-40 rounded-full bg-gender-f/40 blur-3xl" />
           <h2 className="relative page-title !text-canvas text-4xl md:text-6xl">Siap fasih tanpa salah artikel?</h2>

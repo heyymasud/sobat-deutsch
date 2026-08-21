@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
+import { AnimatePresence, motion } from 'framer-motion'
 import { NavLink, Outlet, useNavigate, useOutletContext } from 'react-router-dom'
-import { BookMarked, Layers, Zap, BarChart3, ShieldCheck, Moon, Sun, BookOpen } from 'lucide-react'
+import { BookMarked, Layers, Zap, BarChart3, ShieldCheck, Moon, Sun, BookOpen, Menu, X, UserCircle, ChevronRight } from 'lucide-react'
 import { db } from '../core/db/dictionaryDb'
 import type { Deck } from '../core/db/dictionaryDb'
 import { generateCardsForWord } from '../core/srs/srsScheduler'
@@ -8,6 +9,7 @@ import { supabase } from '../core/api/supabaseClient'
 import { syncEngine } from '../core/sync/syncEngine'
 import { SyncIndicator } from '../modules/sync/components/SyncIndicator'
 import { SrsSyncIndicator } from '../modules/sync/components/SrsSyncIndicator'
+import { Modal } from '../components/Modal'
 import type { DictionaryEntry } from '../modules/dictionary/types'
 
 const NAV = [
@@ -16,6 +18,9 @@ const NAV = [
   { to: '/rush', label: 'Rush', Icon: Zap },
   { to: '/statistik', label: 'Statistik', Icon: BarChart3 },
 ]
+
+// Statistik lives in the mobile menu drawer instead, to keep the bottom tab bar to 4 slots.
+const MOBILE_TAB_NAV = NAV.filter((n) => n.to !== '/statistik')
 
 export interface LayoutContext {
   session: any
@@ -33,6 +38,7 @@ export default function AppLayout() {
   const [userRole, setUserRole] = useState<string>('student')
   const [darkMode, setDarkMode] = useState(() => localStorage.getItem('theme') !== 'light')
 
+  const [showMobileMenu, setShowMobileMenu] = useState(false)
   const [showAddModal, setShowAddModal] = useState(false)
   const [entryToAdd, setEntryToAdd] = useState<DictionaryEntry | null>(null)
   const [availableDecks, setAvailableDecks] = useState<Deck[]>([])
@@ -215,12 +221,7 @@ export default function AppLayout() {
           <span>Sobat<span className="text-brand">Deutsch</span></span>
         </NavLink>
         <div className="flex items-center gap-2">
-          <button onClick={() => setDarkMode(!darkMode)} className="grid h-9 w-9 place-items-center rounded-full hover:bg-surface-muted text-ink-muted">
-            {darkMode ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
-          </button>
-          <button onClick={() => navigate(session ? '/account' : '/login')} className="btn-secondary !py-1.5 !px-3 text-xs">
-            {session ? 'Akun' : 'Masuk'}
-          </button>
+          <SrsSyncIndicator compact />
         </div>
       </header>
 
@@ -233,7 +234,7 @@ export default function AppLayout() {
 
       {/* Mobile bottom tab bar */}
       <nav className="md:hidden fixed bottom-0 inset-x-0 z-40 bg-surface/90 backdrop-blur-xl border-t border-border grid grid-cols-4 px-2 py-2">
-        {NAV.map((n) => (
+        {MOBILE_TAB_NAV.map((n) => (
           <NavLink
             key={n.to}
             to={n.to}
@@ -245,53 +246,158 @@ export default function AppLayout() {
             <span className="font-display text-xs font-bold uppercase tracking-wide">{n.label}</span>
           </NavLink>
         ))}
+        <button
+          onClick={() => setShowMobileMenu(true)}
+          className="flex flex-col items-center gap-1 rounded-xl py-1.5 text-ink-faint transition-colors"
+        >
+          <Menu className="w-5 h-5" strokeWidth={2.2} />
+          <span className="font-display text-xs font-bold uppercase tracking-wide">Menu</span>
+        </button>
       </nav>
+
+      {/* Mobile menu drawer */}
+      <AnimatePresence>
+        {showMobileMenu && (
+          <div className="md:hidden fixed inset-0 z-50 flex items-end">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="absolute inset-0 bg-black/60"
+              onClick={() => setShowMobileMenu(false)}
+            />
+            <motion.div
+              initial={{ y: '100%' }}
+              animate={{ y: 0 }}
+              exit={{ y: '100%' }}
+              transition={{ type: 'spring', damping: 32, stiffness: 340 }}
+              drag="y"
+              dragConstraints={{ top: 0, bottom: 0 }}
+              dragElastic={{ top: 0, bottom: 0.6 }}
+              onDragEnd={(_, info) => {
+                if (info.offset.y > 80 || info.velocity.y > 500) setShowMobileMenu(false)
+              }}
+              className="relative w-full rounded-t-3xl bg-surface border-t border-border p-5 pb-8 touch-none"
+            >
+              <div className="mx-auto mb-4 h-1.5 w-10 rounded-full bg-border" />
+              <div className="flex items-center justify-between mb-5">
+                <h3 className="font-display text-lg font-bold text-ink">Menu</h3>
+                <button onClick={() => setShowMobileMenu(false)} className="grid h-8 w-8 place-items-center rounded-full hover:bg-surface-muted text-ink-muted">
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              <div className="flex flex-col divide-y divide-border rounded-2xl border border-border overflow-hidden">
+                <button
+                  onClick={() => {
+                    setShowMobileMenu(false)
+                    navigate(session ? '/account' : '/login')
+                  }}
+                  className="flex items-center gap-3 p-3.5 text-left transition-colors hover:bg-surface-muted"
+                >
+                  <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-brand text-xs font-bold text-white">
+                    {session ? (session.user?.email?.[0] ?? 'U').toUpperCase() : <UserCircle className="w-4 h-4" />}
+                  </span>
+                  <span className="min-w-0 flex-1 leading-tight">
+                    <p className="text-sm font-bold text-ink truncate">{session ? 'Akun Saya' : 'Tamu'}</p>
+                    <p className="text-xs text-ink-faint">{session ? 'Pengaturan & keluar' : 'Masuk / Daftar'}</p>
+                  </span>
+                  <ChevronRight className="h-4 w-4 shrink-0 text-ink-faint" />
+                </button>
+
+                <button
+                  onClick={() => {
+                    setShowMobileMenu(false)
+                    navigate('/statistik')
+                  }}
+                  className="flex items-center gap-3 p-3.5 text-left transition-colors hover:bg-surface-muted"
+                >
+                  <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-gender-n/15 text-gender-n">
+                    <BarChart3 className="w-4 h-4" />
+                  </span>
+                  <span className="flex-1 text-sm font-bold text-ink">Statistik</span>
+                  <ChevronRight className="h-4 w-4 shrink-0 text-ink-faint" />
+                </button>
+
+                <button
+                  onClick={() => setDarkMode(!darkMode)}
+                  className="flex items-center gap-3 p-3.5 text-left transition-colors hover:bg-surface-muted"
+                >
+                  <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-surface-muted text-ink-muted">
+                    {darkMode ? <Moon className="w-4 h-4" /> : <Sun className="w-4 h-4" />}
+                  </span>
+                  <span className="flex-1 text-sm font-bold text-ink">{darkMode ? 'Mode gelap' : 'Mode terang'}</span>
+                  <span
+                    role="switch"
+                    aria-checked={darkMode}
+                    aria-label="Ganti tema"
+                    className={`relative h-6 w-11 shrink-0 rounded-full transition-colors ${darkMode ? 'bg-brand' : 'bg-border'}`}
+                  >
+                    <motion.span
+                      layout
+                      transition={{ type: 'spring', damping: 28, stiffness: 380 }}
+                      className="absolute top-0.5 h-5 w-5 rounded-full bg-white shadow-sm"
+                      style={{ left: darkMode ? 22 : 2 }}
+                    />
+                  </span>
+                </button>
+              </div>
+
+              <div className="mt-3 rounded-2xl bg-surface-muted/60 p-3.5">
+                <SyncIndicator />
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
 
       {/* Add To Deck Modal */}
       {showAddModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
-          <div className="card max-w-sm w-full p-6 text-left">
-            <h3 className="font-display text-lg font-bold text-ink mb-3">Tambah ke Deck Flashcard</h3>
-            <p className="text-sm text-ink-muted mb-4">
-              Pilih deck tujuan untuk mendaftarkan kata <strong className="text-ink">"{entryToAdd?.lemma}"</strong>. Kartu artikel gender & plural akan dibuat otomatis jika relevan.
-            </p>
-
-            {addSuccessMsg ? (
-              <div className="text-sm font-semibold p-3 rounded-xl border text-success bg-success-soft border-success">
-                {addSuccessMsg}
+        <Modal
+          title="Tambah ke Deck Flashcard"
+          onClose={() => {
+            setShowAddModal(false)
+            setEntryToAdd(null)
+          }}
+          footer={
+            !addSuccessMsg && (
+              <div className="flex gap-2 justify-end text-sm">
+                <button
+                  onClick={() => {
+                    setShowAddModal(false)
+                    setEntryToAdd(null)
+                  }}
+                  className="btn-secondary"
+                >
+                  Batal
+                </button>
+                <button disabled={availableDecks.length === 0} onClick={handleConfirmAddToDeck} className="btn-primary">
+                  Tambah
+                </button>
               </div>
-            ) : (
-              <>
-                {availableDecks.length === 0 ? (
-                  <div className="text-sm p-3 rounded-xl border mb-4 text-center text-warning bg-warning-soft border-warning">
-                    Belum ada deck. Buka <strong>Flashcards</strong> untuk membuat deck terlebih dahulu.
-                  </div>
-                ) : (
-                  <select className="field-input mb-4 text-sm" value={selectedDeckId} onChange={(e) => setSelectedDeckId(e.target.value)}>
-                    {availableDecks.map((deck) => (
-                      <option key={deck.id} value={deck.id}>{deck.name}</option>
-                    ))}
-                  </select>
-                )}
+            )
+          }
+        >
+          <p className="text-sm text-ink-muted mb-4">
+            Pilih deck tujuan untuk mendaftarkan kata <strong className="text-ink">"{entryToAdd?.lemma}"</strong>. Kartu artikel gender & plural akan dibuat otomatis jika relevan.
+          </p>
 
-                <div className="flex gap-2 justify-end text-sm">
-                  <button
-                    onClick={() => {
-                      setShowAddModal(false)
-                      setEntryToAdd(null)
-                    }}
-                    className="btn-secondary"
-                  >
-                    Batal
-                  </button>
-                  <button disabled={availableDecks.length === 0} onClick={handleConfirmAddToDeck} className="btn-primary">
-                    Tambah
-                  </button>
-                </div>
-              </>
-            )}
-          </div>
-        </div>
+          {addSuccessMsg ? (
+            <div className="text-sm font-semibold p-3 rounded-xl border text-success bg-success-soft border-success">
+              {addSuccessMsg}
+            </div>
+          ) : availableDecks.length === 0 ? (
+            <div className="text-sm p-3 rounded-xl border text-center text-warning bg-warning-soft border-warning">
+              Belum ada deck. Buka <strong>Flashcards</strong> untuk membuat deck terlebih dahulu.
+            </div>
+          ) : (
+            <select className="field-input text-sm" value={selectedDeckId} onChange={(e) => setSelectedDeckId(e.target.value)}>
+              {availableDecks.map((deck) => (
+                <option key={deck.id} value={deck.id}>{deck.name}</option>
+              ))}
+            </select>
+          )}
+        </Modal>
       )}
     </div>
   )

@@ -197,15 +197,17 @@ export const SearchBar: React.FC<SearchBarProps> = ({ onSelectEntry, layout = 'o
 
   if (layout === 'rail') {
     return (
-      <div className="flex flex-col h-full min-h-0" ref={dropdownRef}>
-        <div className="p-5 shrink-0 flex flex-col gap-2">
+      // Reversed on mobile so the input sits in the thumb-reachable bottom
+      // zone with results filling upward above it; desktop keeps input on top.
+      <div className="flex flex-col-reverse h-full min-h-0 md:flex-col" ref={dropdownRef}>
+        <div className="p-5 shrink-0 flex flex-col gap-2 border-t border-border md:border-t-0">
           {input}
           {syncingHint}
         </div>
         {errorMsg && (
           <div className="text-sm px-5 py-2 text-danger">{errorMsg}</div>
         )}
-        <div className="flex-1 min-h-0 overflow-y-auto border-t border-border">
+        <div className="flex-1 min-h-0 overflow-y-auto md:border-t md:border-border">
           {suggestions.length > 0 ? (
             <ul className="divide-y divide-border">{suggestions.map((entry, i) => renderRow(entry, i))}</ul>
           ) : hasSearched ? (
@@ -229,9 +231,10 @@ export const SearchBar: React.FC<SearchBarProps> = ({ onSelectEntry, layout = 'o
         <div className="text-sm mt-1.5 px-1 text-danger">{errorMsg}</div>
       )}
 
-      {/* Autocomplete Dropdown (mobile / single-column) */}
+      {/* Autocomplete Dropdown. Opens upward on mobile since the search bar
+          sits toward the bottom of the page there; downward on desktop. */}
       {isOpen && suggestions.length > 0 && (
-        <ul className="absolute z-10 w-full card mt-1 max-h-72 overflow-y-auto divide-y divide-border shadow-lg">
+        <ul className="absolute z-10 w-full card max-h-72 overflow-y-auto divide-y divide-border shadow-lg bottom-full mb-1.5 md:bottom-auto md:top-full md:mt-1.5">
           {suggestions.map((entry, i) => renderRow(entry, i))}
         </ul>
       )}
