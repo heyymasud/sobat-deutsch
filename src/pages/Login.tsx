@@ -1,11 +1,19 @@
+import { useEffect } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { ArrowLeft, Sparkles } from 'lucide-react'
 import { AuthForm } from '../modules/auth/components/AuthForm'
 import { syncEngine } from '../core/sync/syncEngine'
+import { supabase } from '../core/api/supabaseClient'
 
 export default function Login() {
   const navigate = useNavigate()
+
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data }) => {
+      if (data.session) navigate('/kamus', { replace: true })
+    })
+  }, [navigate])
 
   const handleAuthSuccess = async () => {
     await syncEngine.migrateGuestData()
