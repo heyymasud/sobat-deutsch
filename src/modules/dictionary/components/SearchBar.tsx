@@ -174,7 +174,7 @@ export const SearchBar: React.FC<SearchBarProps> = ({ onSelectEntry, layout = 'o
       <input
         type="text"
         className="field-input !rounded-2xl !pl-12 !pr-10 !py-4 text-base"
-        placeholder="Cari kata Jerman atau terjemahan..."
+        placeholder="Cari kata Jerman atau artinya dalam Inggris..."
         value={query}
         onChange={(e) => setQuery(e.target.value)}
         aria-label="Cari kata Jerman"

@@ -406,7 +406,10 @@ export const WordDetail: React.FC<WordDetailProps> = ({ entry, onAddToDeck }) =>
 
         {/* Translations */}
         <div className="card p-6">
-          <h2 className="eyebrow mb-3">Terjemahan</h2>
+          <div className="mb-3 flex items-center justify-between gap-2">
+            <h2 className="eyebrow">Terjemahan (Inggris)</h2>
+            <span className="badge-status badge-status-neutral">B. Indonesia segera hadir</span>
+          </div>
           <p className="text-ink text-lg leading-relaxed">
             {entry.translations ? entry.translations : <span className="text-ink-faint italic">data tidak tersedia</span>}
           </p>

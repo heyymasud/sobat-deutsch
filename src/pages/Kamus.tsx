@@ -13,9 +13,11 @@ export default function Kamus() {
   return (
     <div>
       <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}>
-        <p className="eyebrow">Kamus Jerman–Indonesia</p>
+        <p className="eyebrow">Kamus Jerman–Inggris</p>
         <h1 className="page-title text-3xl md:text-4xl mt-1.5">Cari kata, dengar, hafal.</h1>
-        <p className="text-sm text-ink-muted mt-1.5">Tersimpan offline, pencarian lokal &lt;100ms.</p>
+        <p className="text-sm text-ink-muted mt-1.5">
+          Tersimpan offline, pencarian instan. Terjemahan Bahasa Indonesia segera hadir.
+        </p>
       </motion.div>
 
       <div className="mt-8 card overflow-hidden h-[70vh] min-h-[420px]">
