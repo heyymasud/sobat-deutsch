@@ -10,14 +10,17 @@ import { supabase } from '../api/supabaseClient'
 
 vi.mock('../db/dictionaryDb', () => {
   const mockDb = {
-    decks: { get: vi.fn(), update: vi.fn() },
-    srsCards: { get: vi.fn() },
+    decks: { get: vi.fn(), update: vi.fn(), add: vi.fn().mockResolvedValue(1), clear: vi.fn() },
+    srsCards: { get: vi.fn(), add: vi.fn().mockResolvedValue(1), clear: vi.fn() },
+    reviewLogs: { add: vi.fn(), clear: vi.fn() },
+    mistakeTracker: { add: vi.fn(), clear: vi.fn() },
     syncQueue: {
       orderBy: vi.fn(),
       delete: vi.fn(),
       count: vi.fn().mockResolvedValue(0),
       hook: vi.fn(),
     },
+    transaction: vi.fn((_mode: string, _tables: any, cb: () => Promise<void>) => cb()),
   }
   return { db: mockDb }
 })
@@ -337,5 +340,41 @@ describe('syncEngine.triggerSync', () => {
     ;(supabase.rpc as any).mockResolvedValueOnce({ error: null })
     await syncEngine.triggerSync()
     expect(statuses.at(-1)).toMatchObject({ state: 'synced', error: null })
+  })
+})
+
+// Regression: pullServerData rebuilt local decks from the server without saving
+// each deck's serverId. A device that only ever PULLED a deck (never created it
+// itself) could never push anything back to it -- every push silently failed the
+// "!localDeck?.serverId" guard and stayed queued forever, with no error logged.
+describe('syncEngine.pullServerData', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    vi.resetModules()
+    ;(supabase.auth.getSession as any).mockResolvedValue(SESSION)
+  })
+
+  it('persists serverId onto each deck rebuilt from the server', async () => {
+    const { syncEngine } = await import('./syncEngine')
+
+    const selectChain: any = {
+      select: vi.fn(() => selectChain),
+      then: undefined,
+    }
+    ;(supabase.from as any).mockImplementation((table: string) => ({
+      select: vi.fn().mockResolvedValue(
+        table === 'decks'
+          ? { data: [{ id: 'server-deck-uuid', name: 'Verben', created_at: '2026-01-01T00:00:00Z' }], error: null }
+          : { data: [], error: null }
+      ),
+    }))
+
+    await syncEngine.pullServerData()
+
+    expect(db.decks.add).toHaveBeenCalledWith({
+      name: 'Verben',
+      createdAt: new Date('2026-01-01T00:00:00Z').getTime(),
+      serverId: 'server-deck-uuid',
+    })
   })
 })

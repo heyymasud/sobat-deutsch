@@ -114,7 +114,11 @@ class DictionarySyncEngine {
     this.onlineStatus = online
     console.log(`Network status changed: ${online ? 'ONLINE' : 'OFFLINE'}`)
     if (online) {
-      this.triggerSync()
+      // Realtime does not replay changes made by other devices while this one
+      // was offline -- only push (queued local changes) ran here before, so
+      // anything another device did during the outage was never picked up
+      // until this device happened to reload/login again. Pull explicitly too.
+      this.triggerSync().then(() => this.pullServerData())
     }
   }
 
@@ -222,7 +226,8 @@ class DictionarySyncEngine {
         for (const d of remoteDecks || []) {
           const localId = await db.decks.add({
             name: d.name,
-            createdAt: new Date(d.created_at).getTime()
+            createdAt: new Date(d.created_at).getTime(),
+            serverId: d.id
           })
           deckUuidToLocalId[d.id] = localId
         }
