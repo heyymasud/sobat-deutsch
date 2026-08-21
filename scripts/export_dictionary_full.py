@@ -1,21 +1,38 @@
+import os
 import psycopg2
 import json
+import gzip
 import hashlib
 import urllib.request
 import urllib.error
 from pathlib import Path
 import sys
 
-# Postgres connection details
-PG_HOST = "127.0.0.1"
-PG_PORT = 54322
-PG_USER = "postgres"
-PG_PASSWORD = "postgres"
-PG_DB = "postgres"
+# ponytail: no dotenv dep -- load .env.local by hand, real env vars still win.
+_env_path = Path(__file__).parent.parent / ".env.local"
+if _env_path.exists():
+    for line in _env_path.read_text(encoding="utf-8").splitlines():
+        line = line.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        key, _, value = line.partition("=")
+        os.environ.setdefault(key.strip(), value.strip())
 
-# Local Supabase config
-SUPABASE_URL = "http://127.0.0.1:54321"
-SERVICE_ROLE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImV4cCI6MTk4MzgxMjk5Nn0.EGIM96RAZx35lJzdJsyH-qQwv8Hdp7fsn3W0YpN81IU"
+# Postgres connection details. Defaults target local Supabase CLI;
+# override via env vars (or .env.local) to export from a remote (production) project.
+PG_HOST = os.environ.get("PG_HOST", "127.0.0.1")
+PG_PORT = int(os.environ.get("PG_PORT", "54322"))
+PG_USER = os.environ.get("PG_USER", "postgres")
+PG_PASSWORD = os.environ.get("PG_PASSWORD", "postgres")
+PG_DB = os.environ.get("PG_DB", "postgres")
+
+# Supabase Storage config. Defaults target local Supabase CLI;
+# override via env vars (or .env.local) for a remote (production) project.
+SUPABASE_URL = os.environ.get("EXPORT_SUPABASE_URL", "http://127.0.0.1:54321")
+SERVICE_ROLE_KEY = os.environ.get(
+    "EXPORT_SERVICE_ROLE_KEY",
+    "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImV4cCI6MTk4MzgxMjk5Nn0.EGIM96RAZx35lJzdJsyH-qQwv8Hdp7fsn3W0YpN81IU",
+)
 
 EXPORT_DIR = Path(__file__).parent.parent / "data-pipeline" / "output"
 
@@ -94,17 +111,23 @@ def run():
         f.write(json_data)
     print(f"Saved locally to {local_path}")
     
-    # 4. Upload to Supabase Storage
-    print("Uploading to Supabase Storage...")
+    # 4. Upload to Supabase Storage, gzip-compressed to stay under the
+    # platform's per-file upload limit (Free plan: 50MB; raw JSON is ~60MB+
+    # at 110k+ rows). Content-Encoding: gzip makes browsers decompress
+    # transparently on fetch/XHR -- no client code change needed.
+    print("Uploading to Supabase Storage (gzip)...")
     upload_url = f"{SUPABASE_URL}/storage/v1/object/dictionary-releases/dictionary-full.v{version}.json"
-    
+    compressed = gzip.compress(json_data.encode("utf-8"), compresslevel=9)
+    print(f"Compressed size: {len(compressed)} bytes (raw: {len(json_data.encode('utf-8'))} bytes)")
+
     req = urllib.request.Request(
         upload_url,
-        data=json_data.encode("utf-8"),
+        data=compressed,
         headers={
             "Authorization": f"Bearer {SERVICE_ROLE_KEY}",
             "apikey": SERVICE_ROLE_KEY,
             "Content-Type": "application/json",
+            "Content-Encoding": "gzip",
             "x-upsert": "true"
         },
         method="POST"

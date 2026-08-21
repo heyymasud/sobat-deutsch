@@ -15,6 +15,9 @@ self.onmessage = (e: MessageEvent<WorkerRequest>) => {
   const { url } = e.data
   const xhr = new XMLHttpRequest()
   xhr.open('GET', url, true)
+  // Uploaded gzip-compressed (Storage strips Content-Encoding, so the
+  // browser won't auto-decompress) -- decode manually via DecompressionStream.
+  xhr.responseType = 'arraybuffer'
 
   xhr.onprogress = (event) => {
     if (event.lengthComputable) {
@@ -23,13 +26,15 @@ self.onmessage = (e: MessageEvent<WorkerRequest>) => {
     }
   }
 
-  xhr.onload = () => {
+  xhr.onload = async () => {
     if (xhr.status !== 200) {
       self.postMessage({ type: 'error', message: `Gagal mengunduh file: HTTP ${xhr.status}` } satisfies WorkerResponse)
       return
     }
     try {
-      const entries = JSON.parse(xhr.responseText)
+      const stream = new Blob([xhr.response]).stream().pipeThrough(new DecompressionStream('gzip'))
+      const text = await new Response(stream).text()
+      const entries = JSON.parse(text)
       self.postMessage({ type: 'done', entries } satisfies WorkerResponse)
     } catch {
       self.postMessage({ type: 'error', message: 'Format file unduhan tidak valid' } satisfies WorkerResponse)
